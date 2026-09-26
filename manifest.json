@@ -1,0 +1,15 @@
+{
+  "name": "알까기 듀얼",
+  "short_name": "알까기 듀얼",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/alkkagiduel/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
