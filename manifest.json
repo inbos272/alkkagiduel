@@ -7,7 +7,7 @@
   "orientation": "any",
   "scope": "/",
   "short_name": "알까기",
-  "start_url": "/",
+  "start_url": "/alkkagiduel",
   "theme_color": "#0b1420",
   "icons": [
     {
