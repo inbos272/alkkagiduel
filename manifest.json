@@ -1,15 +1,38 @@
 {
-  "name": "알까기 듀얼",
-  "short_name": "알까기 듀얼",
-  "start_url": "/",
-  "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "description": "둥근 판 위에서 알을 튕겨 상대를 밀어내는 알까기 게임 — 오프라인으로 즐기는 최대 8인 AI 대전",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "알까기",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "알까기",
+  "start_url": "/",
+  "theme_color": "#0b1420",
   "icons": [
     {
-      "src": "/alkkagiduel/icon.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "https://inbos272.github.io/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "isSquare": true,
+      "isPng": true,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 192,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": true
+    },
+    {
+      "src": "https://inbos272.github.io/icons/apple-touch-icon.png",
+      "isSquare": false,
+      "isPng": true,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 0,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": false
     }
   ]
 }
