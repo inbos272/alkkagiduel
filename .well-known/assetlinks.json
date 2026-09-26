@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "io.github.inbos272.alkkagi",
-        "sha256_cert_fingerprints": ["85:5D:6C:CC:47:8A:4A:28:D2:55:7A:3F:BC:5A:45:29:D2:98:61:33:74:6B:13:04:85:27:CB:9D:D5:51:AE:FF"]
+        "sha256_cert_fingerprints": ["59:F9:95:B3:7A:CB:1E:0B:7C:D8:38:3C:D4:0F:53:B8:24:D0:91:E7:D4:76:C0:36:7A:A0:4F:1D:41:D4:82:BD"]
       }
     }]
