@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b1420">
+<meta name="description" content="둥근 판 위에서 알을 튕겨 상대를 밀어내는 알까기 게임 — 오프라인으로 즐기는 최대 8인 AI 대전">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="알까기">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>알까기</title>
 <style>
 :root{
@@ -161,6 +170,16 @@ h1.logo{font-size:34px;font-weight:900;letter-spacing:-1.5px;margin:0;line-heigh
 
 /* ---------- shop ---------- */
 .shop-tabs,.tabs{display:flex;gap:8px;margin:4px 0 14px}
+.shop-tabs{overflow-x:auto;margin-left:-16px;margin-right:-16px;padding:0 16px 2px;scrollbar-width:none;touch-action:pan-x}
+.shop-tabs::-webkit-scrollbar{display:none}
+.shop-tabs .chip{flex:0 0 auto;padding:10px 15px;white-space:nowrap}
+.shop-item.special{border-color:#ffd16677;background:linear-gradient(145deg,rgba(58,44,14,.9),rgba(20,24,34,.96))}
+.booster-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip.booster{display:flex;align-items:center;gap:6px;text-align:left;padding:10px}
+.chip.booster .b-ico{font-size:17px}
+.chip.booster small{margin:0 0 0 auto;font-weight:800;color:var(--text-dim)}
+.chip.booster.active small{color:var(--gold)}
+.chip.booster.empty{opacity:.45}
 .shop-tabs .chip,.tabs .chip{min-width:0}
 .shop-note{font-size:11.5px;color:var(--text-faint);line-height:1.5;margin:0 0 14px;white-space:pre-line}
 .shop-list{display:flex;flex-direction:column;gap:10px}
@@ -228,6 +247,7 @@ canvas#board{touch-action:none}
 .hint{font-size:11.5px;color:var(--text-faint);text-align:center}
 .turn-timer{width:36px;height:36px}
 .toast-stack{position:absolute;top:calc(118px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:92%}
+.toast-stack.low{top:auto;bottom:calc(28px + env(safe-area-inset-bottom));flex-direction:column-reverse}
 .toast{background:rgba(12,22,34,.96);border:1px solid var(--line);padding:9px 15px;border-radius:12px;font-size:12.5px;font-weight:700;text-align:center;animation:fadeIn .2s ease both;box-shadow:0 8px 24px #0006;max-width:100%}
 .toast.gold{border-color:#ffd16688;color:#ffe3a0}
 .toast.good{border-color:#64f3d088;color:#b8fff0}
@@ -371,6 +391,9 @@ canvas#board{touch-action:none}
       <button class="chip active" data-tab="upgrade" data-i18n="shop_tab_upgrade">알 강화</button>
       <button class="chip" data-tab="skin" data-i18n="shop_tab_skin">스킨</button>
       <button class="chip" data-tab="trail" data-i18n="shop_tab_trail">궤적</button>
+      <button class="chip" data-tab="effect" data-i18n="shop_tab_effect">효과</button>
+      <button class="chip" data-tab="avatar" data-i18n="shop_tab_avatar">아바타</button>
+      <button class="chip" data-tab="item" data-i18n="shop_tab_item">아이템</button>
     </div>
     <p class="shop-note" id="shopNote"></p>
     <div class="shop-list" id="shopList"></div>
@@ -414,6 +437,7 @@ canvas#board{touch-action:none}
     <div class="field"><div class="field-label"><span data-i18n="field_stones">알 개수 (1인당)</span></div><div class="stepper"><button data-step="aiStones" data-dir="-1">−</button><div class="val" id="val-aiStones">2</div><button data-step="aiStones" data-dir="1">+</button></div></div>
     <div class="field"><div class="field-label"><span data-i18n="field_map">맵 선택</span></div><div class="chip-row" id="mapChips-ai"></div></div>
     <div class="field"><div class="field-label"><span data-i18n="field_ai_level">AI 난이도</span></div><div class="chip-row"><div class="chip locked" id="aiLockedChip">🔒</div></div><div class="lock-note" data-i18n="ai_locked_desc">대전 AI는 항상 '어려움'으로 고정돼요</div></div>
+    <div class="field"><div class="field-label"><span data-i18n="field_boosters">아이템 사용</span><span id="boosterHint"></span></div><div class="booster-row" id="boosterRow"></div></div>
     <div class="reward-preview" id="aiRewardPreview"></div>
     <button class="primary-btn" id="btnStartAI">시작하기</button>
   </div>
@@ -493,6 +517,7 @@ const $=id=>document.getElementById(id);
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 
+
 /* ============================================================
    설정 상수
 ============================================================ */
@@ -514,72 +539,175 @@ const BATTLE_AI_LEVEL="hard";          // 대전 AI는 항상 어려움
 const BASE_PX=600;
 const STONE_R_RATIO=.052, MAX_PULL=100, MAX_SPEED=17, POWER_CURVE=1.15;
 const SETTLE_EPS=.04, TURN_TIME_LIMIT=18, COLLISION_RESTITUTION=.9, BUMPER_RESTITUTION=.72;
-const AI_ENTRY_COST=8;
-const DAILY_VISIT_REWARD=10;
-const winBaseReward=n=>12+n*6;         // 승리 기본 보상 (인원이 많을수록 커짐)
+
+/* ------------------------------------------------------------
+   경제 밸런스 — 코인은 귀하게! (숫자만 바꾸면 전체 밸런스 조정)
+------------------------------------------------------------ */
+const ECON={
+ entry:5,                    // AI 대전 입장료
+ winBase:n=>6+n*3,           // 승리 기본 보상 (2인 12 · 4인 18 · 8인 30)
+ ko:1,                       // 쳐낸 알 1개당
+ combo:3,                    // 콤보 1단계당 (더블 3 · 트리플 6 ...)
+ perfect:5,                  // 알을 하나도 잃지 않고 승리
+ streakStep:10,streakMax:50, // 연승 보너스 % (최대 +50%)
+ levelUp:l=>10+l*2,          // 레벨 업 보상
+ dailyVisit:10,              // 출석 보상 (하루 1번)
+ allClear:15,                // 일일 미션 올클리어 보너스
+ startCoins:100
+};
+const AI_ENTRY_COST=ECON.entry;
+const DAILY_VISIT_REWARD=ECON.dailyVisit;
+const winBaseReward=ECON.winBase;
 const winXP=n=>40+n*5;
 const XP_NEED=l=>60+(l-1)*40;
 
 /* ============================================================
    상점 데이터
 ============================================================ */
+/* 강화 — AI 대전에서만 적용 (연습 모드에는 적용되지 않음) */
 const UPGRADES=[
- {id:"mass",  ico:"⚓", nameKey:"up_mass_name",  descKey:"up_mass_desc",  max:5, costs:[90,135,195,270,360], effKey:"up_mass_eff",  eff:l=>(l*18)},
- {id:"grip",  ico:"🧲", nameKey:"up_grip_name",  descKey:"up_grip_desc",  max:5, costs:[75,115,170,235,320],  effKey:"up_grip_eff",  eff:l=>(l*12)},
- {id:"power", ico:"💪", nameKey:"up_power_name", descKey:"up_power_desc", max:5, costs:[95,140,210,290,385], effKey:"up_power_eff", eff:l=>(l*4)},
- {id:"bounce",ico:"🌀", nameKey:"up_bounce_name",descKey:"up_bounce_desc",max:3, costs:[130,215,330],          effKey:"up_bounce_eff",eff:l=>(l*6)},
- {id:"aim",   ico:"🎯", nameKey:"up_aim_name",   descKey:"up_aim_desc",   max:1, costs:[300],                  effKey:"up_aim_eff",   eff:l=>l}
+ {id:"mass",   ico:"⚓", max:5, costs:[90,135,195,270,360],  eff:l=>l*18},
+ {id:"grip",   ico:"🧲", max:5, costs:[75,115,170,235,320],  eff:l=>l*12},
+ {id:"power",  ico:"💪", max:5, costs:[95,140,210,290,385],  eff:l=>l*4},
+ {id:"bounce", ico:"🌀", max:3, costs:[130,215,330],         eff:l=>l*6},
+ {id:"aim",    ico:"🎯", max:1, costs:[300],                 eff:l=>l},
+ {id:"luck",   ico:"🍀", max:5, costs:[120,180,260,360,480], eff:l=>l*6},
+ {id:"scholar",ico:"📚", max:5, costs:[80,120,170,230,300],  eff:l=>l*10},
+ {id:"clock",  ico:"⏳", max:3, costs:[60,110,180],          eff:l=>l*3}
 ];
+UPGRADES.forEach(u=>{u.nameKey="up_"+u.id+"_name";u.descKey="up_"+u.id+"_desc";u.effKey="up_"+u.id+"_eff"});
+
+/* 스킨 — emblem: 알 위에 그려지는 무늬 */
 const SKINS=[
- {id:"basic",nameKey:"skin_basic",cost:0,colors:null},
- {id:"neon",nameKey:"skin_neon",cost:200,colors:["#7df9ff","#2a6bff"],glow:.55},
- {id:"pulse",nameKey:"skin_pulse",cost:420,colors:["#ff9dff","#7d2cff"],glow:.9},
- {id:"gold",nameKey:"skin_gold",cost:470,colors:["#ffe9a8","#c8901f"],glow:.4},
- {id:"crystal",nameKey:"skin_crystal",cost:620,colors:["#ffffff","#55bfff"],glow:.75},
- {id:"magma",nameKey:"skin_magma",cost:735,colors:["#ffd36b","#e33b1f"],glow:.6},
- {id:"void",nameKey:"skin_void",cost:860,colors:["#d0b0ff","#17002f"],glow:1},
- {id:"aurora",nameKey:"skin_aurora",cost:1070,colors:["#9dfff0","#a066ff"],glow:.7}
+ {id:"basic",  cost:0,   colors:null},
+ {id:"mint",   cost:150, colors:["#e9fff7","#2fc79b"],glow:.35,emblem:"stripe",ec:"#ffffffcc"},
+ {id:"neon",   cost:200, colors:["#7df9ff","#2a6bff"],glow:.55},
+ {id:"cherry", cost:280, colors:["#fff0f6","#ff7eb6"],glow:.45,emblem:"dots",ec:"#ffffffdd"},
+ {id:"melon",  cost:340, colors:["#d9ffb8","#1f9e3a"],glow:.3,emblem:"stripe",ec:"#0b4d1c"},
+ {id:"ocean",  cost:390, colors:["#c6f4ff","#0f6fb5"],glow:.5,emblem:"ring",ec:"#e6fbffcc"},
+ {id:"pulse",  cost:420, colors:["#ff9dff","#7d2cff"],glow:.9},
+ {id:"gold",   cost:470, colors:["#ffe9a8","#c8901f"],glow:.4},
+ {id:"emerald",cost:550, colors:["#c8ffe0","#0f8f55"],glow:.6,emblem:"star",ec:"#eafff3"},
+ {id:"ruby",   cost:550, colors:["#ffd0d8","#c3123a"],glow:.6,emblem:"star",ec:"#fff0f3"},
+ {id:"crystal",cost:620, colors:["#ffffff","#55bfff"],glow:.75},
+ {id:"magma",  cost:735, colors:["#ffd36b","#e33b1f"],glow:.6,emblem:"ring",ec:"#ffe28a"},
+ {id:"void",   cost:860, colors:["#d0b0ff","#17002f"],glow:1},
+ {id:"galaxy", cost:980, colors:["#b9a8ff","#1a1150"],glow:.85,emblem:"sparkle",ec:"#ffffff"},
+ {id:"aurora", cost:1070,colors:["#9dfff0","#a066ff"],glow:.7},
+ {id:"royal",  cost:1500,colors:["#fff3c4","#6a2bd1"],glow:.8,emblem:"crown",ec:"#ffd166"},
+ {id:"rainbow",cost:1800,colors:["#ffffff","#ff5c7a"],glow:.9,rainbow:true}
 ];
+/* 궤적 — style: line(선) · dots(방울) · stars(별) */
 const TRAILS=[
- {id:"none",nameKey:"trail_none",cost:0,colors:[]},
- {id:"comet",nameKey:"trail_comet",cost:140,colors:["#64f3d0","#55bfff"]},
- {id:"spark",nameKey:"trail_spark",cost:260,colors:["#ffd166","#ff5c78"]},
- {id:"laser",nameKey:"trail_laser",cost:390,colors:["#ff64e8","#7d6bff"]},
- {id:"prism",nameKey:"trail_prism",cost:560,colors:["#9dfff0","#ffe26b"]}
+ {id:"none",    cost:0,  colors:[]},
+ {id:"comet",   cost:140,colors:["#64f3d0","#55bfff"],style:"line"},
+ {id:"ghost",   cost:180,colors:["#ffffff","#b8c7d9"],style:"line"},
+ {id:"bubble",  cost:220,colors:["#9df0ff","#e0fbff"],style:"dots"},
+ {id:"spark",   cost:260,colors:["#ffd166","#ff5c78"],style:"line"},
+ {id:"flame",   cost:320,colors:["#ffb13b","#ff3b1f"],style:"line",wide:true},
+ {id:"laser",   cost:390,colors:["#ff64e8","#7d6bff"],style:"line"},
+ {id:"stardust",cost:480,colors:["#fff6b0","#ffd166"],style:"stars"},
+ {id:"prism",   cost:560,colors:["#9dfff0","#ffe26b"],style:"line"},
+ {id:"rainbowT",cost:900,colors:["#ff5c7a","#55bfff"],style:"line",rainbow:true,wide:true}
 ];
+/* 넉아웃 효과 — 내가 쳐낸 상대 알이 나갈 때 */
+const EFFECTS=[
+ {id:"basic",    ico:"💥",cost:0},
+ {id:"fireworks",ico:"🎆",cost:250},
+ {id:"confetti", ico:"🎊",cost:300},
+ {id:"hearts",   ico:"💖",cost:350},
+ {id:"lightning",ico:"⚡",cost:450},
+ {id:"coins",    ico:"🪙",cost:600},
+ {id:"blackhole",ico:"🌀",cost:800}
+];
+/* 아바타 */
+const AVATARS=[
+ {id:"auto",ico:"",cost:0},
+ {id:"tiger",ico:"🐯",cost:100},{id:"fox",ico:"🦊",cost:100},{id:"panda",ico:"🐼",cost:120},{id:"frog",ico:"🐸",cost:120},
+ {id:"octo",ico:"🐙",cost:150},{id:"unicorn",ico:"🦄",cost:200},{id:"alien",ico:"👾",cost:250},{id:"robot",ico:"🤖",cost:250},
+ {id:"dragon",ico:"🐉",cost:300},{id:"ninja",ico:"🥷",cost:350},{id:"king",ico:"👑",cost:600}
+];
+/* 아이템 — 소모품(다음 AI 대전에 사용) + 행운 상자 */
+const ITEMS=[
+ {id:"double", ico:"💰",cost:40},   // 코인 보상 2배
+ {id:"xpboost",ico:"📈",cost:25},   // 경험치 2배
+ {id:"shield", ico:"🛡️",cost:30},   // 져도 연승 유지
+ {id:"insure", ico:"☂️",cost:12},   // 지면 입장료 환급
+ {id:"box",    ico:"🎁",cost:80,instant:true} // 행운 상자
+];
+const BOOSTERS=ITEMS.filter(i=>!i.instant);
+const COSMETIC_SETS={skin:{list:SKINS,own:"skins",eq:"skin"},trail:{list:TRAILS,own:"trails",eq:"trail"},effect:{list:EFFECTS,own:"effects",eq:"effect"},avatar:{list:AVATARS,own:"avatars",eq:"avatar"}};
 
 /* ============================================================
    미션 / 업적 / 칭호
 ============================================================ */
 const MISSION_POOL=[
- {id:"play_ai", ico:"⚔️",n:3,reward:20,ev:"ai_game"},
- {id:"win_ai",  ico:"🏆",n:2,reward:30,ev:"ai_win"},
- {id:"ko",      ico:"💥",n:8,reward:25,ev:"ko"},
- {id:"combo",   ico:"⚡",n:1,reward:30,ev:"combo"},
- {id:"big_win", ico:"🌪️",n:1,reward:40,ev:"big_win"},
- {id:"ice",     ico:"❄️",n:2,reward:20,ev:"map_ice"},
- {id:"bumper",  ico:"🔵",n:2,reward:20,ev:"map_bumper"},
- {id:"mini",    ico:"🎯",n:2,reward:20,ev:"map_mini"},
- {id:"flawless",ico:"🛡️",n:1,reward:40,ev:"flawless"},
- {id:"practice",ico:"🎓",n:1,reward:15,ev:"practice"}
+ {id:"play_ai", ico:"⚔️",n:3,reward:10,ev:"ai_game"},
+ {id:"win_ai",  ico:"🏆",n:2,reward:15,ev:"ai_win"},
+ {id:"ko",      ico:"💥",n:8,reward:12,ev:"ko"},
+ {id:"combo",   ico:"⚡",n:1,reward:15,ev:"combo"},
+ {id:"big_win", ico:"🌪️",n:1,reward:20,ev:"big_win"},
+ {id:"ice",     ico:"❄️",n:2,reward:10,ev:"map_ice"},
+ {id:"bumper",  ico:"🔵",n:2,reward:10,ev:"map_bumper"},
+ {id:"mini",    ico:"🎯",n:2,reward:10,ev:"map_mini"},
+ {id:"flawless",ico:"🛡️",n:1,reward:20,ev:"flawless"},
+ {id:"practice",ico:"🎓",n:1,reward:8, ev:"practice"}
 ];
-const ALL_CLEAR_BONUS=30;
+const ALL_CLEAR_BONUS=ECON.allClear;
+const mapsWon=()=>MAP_ORDER.filter(m=>(acc.mapWins?.[m]||0)>0).length;
+const maxedUps=()=>UPGRADES.filter(u=>upLevel(u.id)>=u.max).length;
 const ACHS=[
- {id:"first_win",ico:"🏆",goal:1,  reward:30, val:()=>acc.wins},
- {id:"wins10",   ico:"🥈",goal:10, reward:60, val:()=>acc.wins},
- {id:"wins50",   ico:"🥇",goal:50, reward:150,val:()=>acc.wins},
- {id:"wins100",  ico:"👑",goal:100,reward:300,val:()=>acc.wins},
- {id:"ko50",     ico:"💥",goal:50, reward:50, val:()=>acc.knockouts},
- {id:"ko300",    ico:"☄️",goal:300,reward:200,val:()=>acc.knockouts},
- {id:"combo3",   ico:"⚡",goal:3,  reward:80, val:()=>acc.bestCombo},
- {id:"streak5",  ico:"🔥",goal:5,  reward:100,val:()=>acc.bestStreak},
- {id:"win8",     ico:"🌪️",goal:1,  reward:120,val:()=>acc.win8},
- {id:"level10",  ico:"⭐",goal:10, reward:150,val:()=>acc.level},
- {id:"visit7",   ico:"📅",goal:7,  reward:70, val:()=>acc.visitDays},
- {id:"skins4",   ico:"🎨",goal:4,  reward:100,val:()=>acc.skins.length}
+ /* 승리 */
+ {id:"first_win",ico:"🏆",goal:1,   reward:20, val:()=>acc.wins},
+ {id:"wins10",   ico:"🥉",goal:10,  reward:40, val:()=>acc.wins},
+ {id:"wins50",   ico:"🥈",goal:50,  reward:100,val:()=>acc.wins},
+ {id:"wins100",  ico:"🥇",goal:100, reward:200,val:()=>acc.wins},
+ {id:"wins250",  ico:"👑",goal:250, reward:400,val:()=>acc.wins},
+ {id:"games10",  ico:"🎮",goal:10,  reward:20, val:()=>acc.games},
+ {id:"games100", ico:"🕹️",goal:100, reward:120,val:()=>acc.games},
+ /* 전투 */
+ {id:"ko50",     ico:"💥",goal:50,  reward:40, val:()=>acc.knockouts},
+ {id:"ko300",    ico:"☄️",goal:300, reward:120,val:()=>acc.knockouts},
+ {id:"ko1000",   ico:"🌋",goal:1000,reward:300,val:()=>acc.knockouts},
+ {id:"combo3",   ico:"⚡",goal:3,   reward:60, val:()=>acc.bestCombo},
+ {id:"combo4",   ico:"🌩️",goal:4,   reward:150,val:()=>acc.bestCombo},
+ {id:"streak5",  ico:"🔥",goal:5,   reward:80, val:()=>acc.bestStreak},
+ {id:"streak10", ico:"☀️",goal:10,  reward:250,val:()=>acc.bestStreak},
+ {id:"perfect10",ico:"🛡️",goal:10,  reward:120,val:()=>acc.perfects},
+ {id:"clutch",   ico:"🎲",goal:1,   reward:60, val:()=>acc.clutch},
+ {id:"win8",     ico:"🌪️",goal:1,   reward:80, val:()=>acc.win8},
+ {id:"win8x10",  ico:"🌀",goal:10,  reward:250,val:()=>acc.win8},
+ /* 맵 */
+ {id:"allmaps",  ico:"🗺️",goal:4,   reward:80, val:mapsWon},
+ {id:"ice5",     ico:"❄️",goal:5,   reward:60, val:()=>acc.mapWins?.ice||0},
+ {id:"bumper5",  ico:"🔵",goal:5,   reward:60, val:()=>acc.mapWins?.bumper||0},
+ {id:"mini5",    ico:"🎯",goal:5,   reward:60, val:()=>acc.mapWins?.mini||0},
+ /* 성장 */
+ {id:"level10",  ico:"⭐",goal:10,  reward:100,val:()=>acc.level},
+ {id:"level20",  ico:"🌟",goal:20,  reward:200,val:()=>acc.level},
+ {id:"level35",  ico:"💫",goal:35,  reward:400,val:()=>acc.level},
+ {id:"maxup1",   ico:"🔧",goal:1,   reward:80, val:maxedUps},
+ {id:"maxall",   ico:"🛠️",goal:UPGRADES.length,reward:500,val:maxedUps},
+ /* 수집 */
+ {id:"skins4",   ico:"🎨",goal:4,   reward:60, val:()=>acc.skins.length},
+ {id:"skins10",  ico:"🖌️",goal:10,  reward:200,val:()=>acc.skins.length},
+ {id:"trails5",  ico:"✨",goal:5,   reward:100,val:()=>acc.trails.length},
+ {id:"effects4", ico:"🎆",goal:4,   reward:100,val:()=>acc.effects.length},
+ {id:"avatars5", ico:"🐯",goal:5,   reward:80, val:()=>acc.avatars.length},
+ {id:"boxes10",  ico:"🎁",goal:10,  reward:100,val:()=>acc.boxes},
+ /* 꾸준함 */
+ {id:"visit7",   ico:"📅",goal:7,   reward:50, val:()=>acc.visitDays},
+ {id:"visit30",  ico:"🗓️",goal:30,  reward:200,val:()=>acc.visitDays},
+ {id:"missions30",ico:"📋",goal:30, reward:150,val:()=>acc.missionsDone},
+ {id:"practice10",ico:"🎓",goal:10, reward:30, val:()=>acc.practiceGames},
+ /* 코인 */
+ {id:"earn5000", ico:"💰",goal:5000,reward:150,val:()=>acc.totalEarned},
+ {id:"spend3000",ico:"🛍️",goal:3000,reward:150,val:()=>acc.totalSpent}
 ];
 const TITLES=[[1,"title_0","🌱"],[5,"title_1","🎯"],[10,"title_2","🛡️"],[20,"title_3","👑"],[35,"title_4","💎"],[50,"title_5","🌟"]];
 function titleOf(l){let t=TITLES[0];for(const x of TITLES)if(l>=x[0])t=x;return t}
+SKINS.forEach(s=>s.nameKey="skin_"+s.id);TRAILS.forEach(s=>s.nameKey="trail_"+s.id);
+EFFECTS.forEach(s=>s.nameKey="fx_"+s.id);AVATARS.forEach(s=>s.nameKey="av_"+s.id);ITEMS.forEach(s=>s.nameKey="item_"+s.id);
 
 /* ============================================================
    다국어
@@ -632,7 +760,8 @@ ko:{
  ach_toast:"🏅 업적 달성: {name}",
  daily_title:"출석 보상",daily_body:"오늘도 와줘서 고마워요!\n벌써 {n}일째 방문이에요.",
  levelup_title:"레벨 업!",levelup_body:"Lv.{n} 달성 — {title}",ok:"확인",nick_title:"닉네임 변경",save:"저장",nick_placeholder:"닉네임 (최대 12자)",
- stones_unit:"알 {n}"
+ stones_unit:"알 {n}",
+ exit_app_title:"게임을 종료할까요?",exit_app_body:"진행 상황은 이 기기에 자동으로 저장돼요.",btn_quit:"종료"
 },
 en:{
  loading_status:"Getting the game ready...",loading_ready:"Ready!",loading_tip:"Log in daily for 🪙10! Earn coins from missions and achievements to upgrade your stones.",
@@ -681,7 +810,8 @@ en:{
  ach_toast:"🏅 Achievement: {name}",
  daily_title:"Daily Reward",daily_body:"Thanks for coming back!\nThis is visit day {n}.",
  levelup_title:"Level Up!",levelup_body:"Reached Lv.{n} — {title}",ok:"OK",nick_title:"Change Nickname",save:"Save",nick_placeholder:"Nickname (max 12)",
- stones_unit:"{n} left"
+ stones_unit:"{n} left",
+ exit_app_title:"Quit the game?",exit_app_body:"Your progress is saved on this device automatically.",btn_quit:"Quit"
 },
 zh:{
  loading_status:"正在准备游戏...",loading_ready:"准备完毕！",loading_tip:"每天登录可得🪙10！通过任务和成就收集金币来强化棋子吧。",
@@ -730,12 +860,107 @@ zh:{
  ach_toast:"🏅 达成成就：{name}",
  daily_title:"签到奖励",daily_body:"谢谢你今天也来了！\n这是你第{n}天访问。",
  levelup_title:"升级！",levelup_body:"达到 Lv.{n} — {title}",ok:"确定",nick_title:"修改昵称",save:"保存",nick_placeholder:"昵称（最多12字）",
- stones_unit:"剩{n}颗"
+ stones_unit:"剩{n}颗",
+ exit_app_title:"要退出游戏吗？",exit_app_body:"进度会自动保存在本设备上。",btn_quit:"退出"
 }};
 let currentLang=lsGet("alkkagi_lang")||"ko";if(!I18N[currentLang])currentLang="ko";
 function T(k,v){let s=I18N[currentLang]?.[k]??I18N.ko[k]??k;if(v)for(const x in v)s=s.split("{"+x+"}").join(v[x]);return s}
 function applyStaticI18n(){document.documentElement.lang=currentLang;document.querySelectorAll("[data-i18n]").forEach(e=>e.textContent=T(e.dataset.i18n))}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+/* ---- 추가 번역 (상점 확장 · 업적 확장) ---- */
+const I18N_EXTRA={
+ko:{
+ practice_no_reward:"연습에는 코인·경험치 보상이 없고, 강화·스킨·궤적도 적용되지 않아요. 모든 플레이어를 AI로 두고 관전할 수도 있어요.",
+ hint_spectate:"관전 중 — AI끼리 대결하고 있어요",
+ shop_tab_effect:"효과",shop_tab_avatar:"아바타",shop_tab_item:"아이템",
+ shop_note_upgrade:"강화는 AI 대전에서만 내 알에 적용돼요. (연습에는 적용 안 됨)\n어려움 AI를 이기려면 강화가 큰 도움이 돼요!",
+ shop_note_skin:"스킨은 AI 대전에서 내 알에 적용돼요.",shop_note_trail:"AI 대전에서 내 알이 움직일 때 남는 흔적이에요.",
+ shop_note_effect:"AI 대전에서 내가 상대 알을 쳐낼 때 터지는 효과예요.",shop_note_avatar:"메뉴에 보이는 내 프로필 아이콘이에요.",
+ shop_note_item:"소모품은 AI 대전 시작 화면에서 골라 사용해요. 한 판에 1개씩 쓰여요.",
+ up_luck_name:"행운의 동전",up_luck_desc:"AI 대전에서 받는 코인이 늘어나요.",up_luck_eff:"코인 +{n}%",
+ up_scholar_name:"학습 노트",up_scholar_desc:"AI 대전에서 받는 경험치가 늘어나요.",up_scholar_eff:"경험치 +{n}%",
+ up_clock_name:"모래시계",up_clock_desc:"AI 대전에서 내 차례 제한 시간이 늘어나요.",up_clock_eff:"제한 시간 +{n}초",
+ skin_mint:"민트 캔디",skin_cherry:"벚꽃",skin_melon:"수박",skin_ocean:"오션",skin_emerald:"에메랄드",skin_ruby:"루비",skin_galaxy:"갤럭시",skin_royal:"로열",skin_rainbow:"레인보우",
+ trail_ghost:"유령",trail_bubble:"버블",trail_flame:"불꽃",trail_stardust:"별가루",trail_rainbowT:"무지개",
+ fx_basic:"기본",fx_fireworks:"폭죽",fx_confetti:"색종이",fx_hearts:"하트",fx_lightning:"번개",fx_coins:"동전 비",fx_blackhole:"블랙홀",
+ av_auto:"칭호 아이콘",av_tiger:"호랑이",av_fox:"여우",av_panda:"판다",av_frog:"개구리",av_octo:"문어",av_unicorn:"유니콘",av_alien:"외계인",av_robot:"로봇",av_dragon:"드래곤",av_ninja:"닌자",av_king:"킹",
+ item_double:"코인 2배 티켓",item_double_desc:"다음 AI 대전에서 받는 코인이 2배가 돼요.",
+ item_xpboost:"경험치 2배",item_xpboost_desc:"다음 AI 대전에서 받는 경험치가 2배가 돼요.",
+ item_shield:"연승 보호막",item_shield_desc:"다음 AI 대전에서 져도 연승이 끊기지 않아요.",
+ item_insure:"패배 보험",item_insure_desc:"다음 AI 대전에서 지면 입장료를 돌려받아요.",
+ item_box:"행운 상자",item_box_desc:"아직 없는 스킨·궤적·효과·아바타 중 하나, 또는 코인이 나와요!",
+ item_owned:"보유 {n}개",open:"열기",box_cosmetic:"{kind} '{name}' 획득!",box_coins:"코인 {n}개 획득!",box_sub:"상점에서 바로 장착할 수 있어요.",
+ kind_skin:"스킨",kind_trail:"궤적",kind_effect:"효과",kind_avatar:"아바타",
+ field_boosters:"아이템 사용",booster_none:"보유한 아이템이 없어요 — 상점 › 아이템",
+ rw_luck:"행운의 동전 (+{p}%)",rw_double:"💰 코인 2배",rw_insure:"☂️ 패배 보험 (입장료 환급)",rw_shield:"🛡️ 보호막으로 {n}연승 유지!",xp_boosted:"+{n} XP (2배)",
+ a_wins250:"250승 달성",a_games10:"10판 플레이",a_games100:"100판 플레이",a_ko1000:"알 1000개 쳐내기",a_combo4:"쿼드라 킬",a_streak10:"10연승",
+ a_perfect10:"퍼펙트 승리 10회",a_clutch:"마지막 한 알로 승리",a_win8x10:"8인 대전 10승",a_allmaps:"모든 맵에서 승리",a_ice5:"빙판에서 5승",a_bumper5:"범퍼 맵에서 5승",a_mini5:"미니 맵에서 5승",
+ a_level20:"레벨 20 달성",a_level35:"레벨 35 달성",a_maxup1:"강화 하나 최대 레벨",a_maxall:"모든 강화 최대 레벨",
+ a_skins10:"스킨 10개 수집",a_trails5:"궤적 5개 수집",a_effects4:"효과 4개 수집",a_avatars5:"아바타 5개 수집",a_boxes10:"행운 상자 10번 열기",
+ a_visit30:"30일 방문",a_missions30:"미션 30개 완료",a_practice10:"연습 10판",a_earn5000:"코인 누적 5,000개 획득",a_spend3000:"코인 누적 3,000개 사용"
+},
+en:{
+ practice_no_reward:"Practice gives no coins or XP, and upgrades, skins and trails are not applied. You can set every player to AI and just watch.",
+ hint_spectate:"Spectating — the AIs are battling",
+ shop_tab_effect:"Effects",shop_tab_avatar:"Avatars",shop_tab_item:"Items",
+ shop_note_upgrade:"Upgrades apply to your stones in AI Battle only (not Practice).\nThey help a lot against Hard AI!",
+ shop_note_skin:"Skins apply to your stones in AI Battle.",shop_note_trail:"A trail behind your moving stones in AI Battle.",
+ shop_note_effect:"Plays when you knock an opponent's stone out in AI Battle.",shop_note_avatar:"Your profile icon on the menu.",
+ shop_note_item:"Choose consumables on the AI Battle start screen. One is used per match.",
+ up_luck_name:"Lucky Coin",up_luck_desc:"Earn more coins in AI Battle.",up_luck_eff:"Coins +{n}%",
+ up_scholar_name:"Study Notes",up_scholar_desc:"Earn more XP in AI Battle.",up_scholar_eff:"XP +{n}%",
+ up_clock_name:"Hourglass",up_clock_desc:"More time for your turn in AI Battle.",up_clock_eff:"Turn time +{n}s",
+ skin_mint:"Mint Candy",skin_cherry:"Cherry Blossom",skin_melon:"Watermelon",skin_ocean:"Ocean",skin_emerald:"Emerald",skin_ruby:"Ruby",skin_galaxy:"Galaxy",skin_royal:"Royal",skin_rainbow:"Rainbow",
+ trail_ghost:"Ghost",trail_bubble:"Bubbles",trail_flame:"Flame",trail_stardust:"Stardust",trail_rainbowT:"Rainbow",
+ fx_basic:"Basic",fx_fireworks:"Fireworks",fx_confetti:"Confetti",fx_hearts:"Hearts",fx_lightning:"Lightning",fx_coins:"Coin Shower",fx_blackhole:"Black Hole",
+ av_auto:"Title icon",av_tiger:"Tiger",av_fox:"Fox",av_panda:"Panda",av_frog:"Frog",av_octo:"Octopus",av_unicorn:"Unicorn",av_alien:"Alien",av_robot:"Robot",av_dragon:"Dragon",av_ninja:"Ninja",av_king:"King",
+ item_double:"Double Coins",item_double_desc:"Double the coins from your next AI Battle.",
+ item_xpboost:"Double XP",item_xpboost_desc:"Double the XP from your next AI Battle.",
+ item_shield:"Streak Shield",item_shield_desc:"Losing your next AI Battle won't break your streak.",
+ item_insure:"Loss Insurance",item_insure_desc:"Get your entry fee back if you lose your next AI Battle.",
+ item_box:"Lucky Box",item_box_desc:"Contains a skin, trail, effect or avatar you don't own yet — or coins!",
+ item_owned:"Own {n}",open:"Open",box_cosmetic:"Got {kind}: '{name}'!",box_coins:"Got {n} coins!",box_sub:"Equip it in the shop anytime.",
+ kind_skin:"Skin",kind_trail:"Trail",kind_effect:"Effect",kind_avatar:"Avatar",
+ field_boosters:"Use Items",booster_none:"No items yet — Shop › Items",
+ rw_luck:"Lucky Coin (+{p}%)",rw_double:"💰 Double Coins",rw_insure:"☂️ Loss Insurance (refund)",rw_shield:"🛡️ Shield kept your {n}-win streak!",xp_boosted:"+{n} XP (x2)",
+ a_wins250:"250 Wins",a_games10:"Play 10 Matches",a_games100:"Play 100 Matches",a_ko1000:"1000 Knockouts",a_combo4:"Quadra Kill",a_streak10:"10-Win Streak",
+ a_perfect10:"10 Perfect Wins",a_clutch:"Win With Your Last Stone",a_win8x10:"10 Wins in 8-player Battles",a_allmaps:"Win on Every Map",a_ice5:"5 Wins on Ice",a_bumper5:"5 Wins on Bumper",a_mini5:"5 Wins on Mini",
+ a_level20:"Reach Level 20",a_level35:"Reach Level 35",a_maxup1:"Max Out an Upgrade",a_maxall:"Max Out All Upgrades",
+ a_skins10:"Collect 10 Skins",a_trails5:"Collect 5 Trails",a_effects4:"Collect 4 Effects",a_avatars5:"Collect 5 Avatars",a_boxes10:"Open 10 Lucky Boxes",
+ a_visit30:"Visit 30 Days",a_missions30:"Complete 30 Missions",a_practice10:"10 Practice Games",a_earn5000:"Earn 5,000 Coins",a_spend3000:"Spend 3,000 Coins"
+},
+zh:{
+ practice_no_reward:"练习没有金币和经验奖励，也不应用强化、皮肤和轨迹。可以把所有玩家都设为AI来观战。",
+ hint_spectate:"观战中 —— AI之间正在对决",
+ shop_tab_effect:"特效",shop_tab_avatar:"头像",shop_tab_item:"道具",
+ shop_note_upgrade:"强化仅在AI对战中对你的棋子生效（练习不生效）。\n想战胜困难AI，强化会很有帮助！",
+ shop_note_skin:"皮肤在AI对战中应用于你的棋子。",shop_note_trail:"AI对战中你的棋子移动时留下的轨迹。",
+ shop_note_effect:"AI对战中你击出对手棋子时播放的特效。",shop_note_avatar:"菜单上显示的个人头像。",
+ shop_note_item:"消耗道具在AI对战开始界面选择使用，每局使用1个。",
+ up_luck_name:"幸运金币",up_luck_desc:"AI对战中获得更多金币。",up_luck_eff:"金币 +{n}%",
+ up_scholar_name:"学习笔记",up_scholar_desc:"AI对战中获得更多经验。",up_scholar_eff:"经验 +{n}%",
+ up_clock_name:"沙漏",up_clock_desc:"AI对战中你的回合时间更长。",up_clock_eff:"回合时间 +{n}秒",
+ skin_mint:"薄荷糖",skin_cherry:"樱花",skin_melon:"西瓜",skin_ocean:"海洋",skin_emerald:"翡翠",skin_ruby:"红宝石",skin_galaxy:"银河",skin_royal:"皇家",skin_rainbow:"彩虹",
+ trail_ghost:"幽灵",trail_bubble:"泡泡",trail_flame:"火焰",trail_stardust:"星尘",trail_rainbowT:"彩虹",
+ fx_basic:"基础",fx_fireworks:"烟花",fx_confetti:"彩纸",fx_hearts:"爱心",fx_lightning:"闪电",fx_coins:"金币雨",fx_blackhole:"黑洞",
+ av_auto:"称号图标",av_tiger:"老虎",av_fox:"狐狸",av_panda:"熊猫",av_frog:"青蛙",av_octo:"章鱼",av_unicorn:"独角兽",av_alien:"外星人",av_robot:"机器人",av_dragon:"龙",av_ninja:"忍者",av_king:"国王",
+ item_double:"双倍金币券",item_double_desc:"下一场AI对战获得的金币翻倍。",
+ item_xpboost:"双倍经验",item_xpboost_desc:"下一场AI对战获得的经验翻倍。",
+ item_shield:"连胜护盾",item_shield_desc:"下一场AI对战即使失败也不会中断连胜。",
+ item_insure:"失败保险",item_insure_desc:"下一场AI对战失败时退还入场费。",
+ item_box:"幸运宝箱",item_box_desc:"随机获得一个尚未拥有的皮肤、轨迹、特效或头像，或者金币！",
+ item_owned:"拥有 {n}个",open:"打开",box_cosmetic:"获得{kind}「{name}」！",box_coins:"获得 {n} 金币！",box_sub:"可以随时在商店装备。",
+ kind_skin:"皮肤",kind_trail:"轨迹",kind_effect:"特效",kind_avatar:"头像",
+ field_boosters:"使用道具",booster_none:"还没有道具 — 商店 › 道具",
+ rw_luck:"幸运金币 (+{p}%)",rw_double:"💰 双倍金币",rw_insure:"☂️ 失败保险（退还入场费）",rw_shield:"🛡️ 护盾保住了{n}连胜！",xp_boosted:"+{n} XP (双倍)",
+ a_wins250:"250胜",a_games10:"进行10场",a_games100:"进行100场",a_ko1000:"击出1000颗",a_combo4:"四杀",a_streak10:"10连胜",
+ a_perfect10:"完美胜利10次",a_clutch:"用最后一颗棋子获胜",a_win8x10:"8人对战10胜",a_allmaps:"在所有地图获胜",a_ice5:"冰面5胜",a_bumper5:"弹跳地图5胜",a_mini5:"迷你地图5胜",
+ a_level20:"达到20级",a_level35:"达到35级",a_maxup1:"一项强化满级",a_maxall:"全部强化满级",
+ a_skins10:"收集10款皮肤",a_trails5:"收集5种轨迹",a_effects4:"收集4种特效",a_avatars5:"收集5个头像",a_boxes10:"打开10次幸运宝箱",
+ a_visit30:"访问30天",a_missions30:"完成30个任务",a_practice10:"练习10场",a_earn5000:"累计获得5000金币",a_spend3000:"累计花费3000金币"
+}};
+for(const l in I18N_EXTRA)Object.assign(I18N[l],I18N_EXTRA[l]);
+
 
 /* ============================================================
    사운드 (Web Audio · 외부 파일 없음)
@@ -854,10 +1079,11 @@ function makeId(){return (window.crypto?.randomUUID?.()||("dev-"+Date.now()+"-"+
 let deviceId=lsGet(DEVICE_KEY)||makeId();lsSet(DEVICE_KEY,deviceId);
 function defaultAcc(){return{
  accountId:deviceId,nickname:lsGet("alkkagi_nickname")||"플레이어",createdAt:Date.now(),
- coins:100,xp:0,level:1,wins:0,games:0,curStreak:0,bestStreak:0,playSeconds:0,
+ coins:ECON.startCoins,xp:0,level:1,wins:0,games:0,curStreak:0,bestStreak:0,playSeconds:0,
  knockouts:0,bestCombo:0,win8:0,practiceGames:0,visitDays:0,lastVisit:"",
- upgrades:{},skins:["basic"],skin:"basic",trails:["none"],trail:"none",
- daily:null,ach:{},achSeen:{}
+ perfects:0,clutch:0,boxes:0,missionsDone:0,totalEarned:0,totalSpent:0,mapWins:{},
+ upgrades:{},skins:["basic"],skin:"basic",trails:["none"],trail:"none",effects:["basic"],effect:"basic",avatars:["auto"],avatar:"auto",
+ items:{},daily:null,ach:{},achSeen:{}
 }}
 function loadAcc(){
  const d=defaultAcc();let a=null;
@@ -865,18 +1091,23 @@ function loadAcc(){
  if(!a||typeof a!=="object")return d;
  const m={...d,...a};
  m.accountId=deviceId;               // 이 기기에 묶인 단 하나의 계정
- ["coins","xp","level","wins","games","curStreak","bestStreak","playSeconds","knockouts","bestCombo","win8","practiceGames","visitDays"].forEach(k=>{m[k]=Math.max(0,Number(m[k])||0)});
+ ["coins","xp","level","wins","games","curStreak","bestStreak","playSeconds","knockouts","bestCombo","win8","practiceGames","visitDays","perfects","clutch","boxes","missionsDone","totalEarned","totalSpent"].forEach(k=>{m[k]=Math.max(0,Number(m[k])||0)});
  m.level=Math.max(1,m.level);
  m.upgrades=(a.upgrades&&typeof a.upgrades==="object")?a.upgrades:{};
- m.skins=Array.isArray(a.skins)?a.skins.filter(id=>SKINS.some(s=>s.id===id)):[];if(!m.skins.includes("basic"))m.skins.unshift("basic");
- if(!m.skins.includes(m.skin))m.skin="basic";
- m.trails=Array.isArray(a.trails)?a.trails.filter(id=>TRAILS.some(s=>s.id===id)):[];if(!m.trails.includes("none"))m.trails.unshift("none");
- if(!m.trails.includes(m.trail))m.trail="none";
+ for(const k in COSMETIC_SETS){
+  const set=COSMETIC_SETS[k],free=set.list[0].id;
+  m[set.own]=Array.isArray(a[set.own])?[...new Set(a[set.own].filter(id=>set.list.some(s=>s.id===id)))]:[];
+  if(!m[set.own].includes(free))m[set.own].unshift(free);
+  if(!m[set.own].includes(m[set.eq]))m[set.eq]=free;
+ }
+ m.items={};ITEMS.forEach(it=>{if(!it.instant)m.items[it.id]=Math.max(0,Number(a.items?.[it.id])||0)});
+ m.mapWins={};MAP_ORDER.forEach(k=>{m.mapWins[k]=Math.max(0,Number(a.mapWins?.[k])||0)});
  m.ach=(a.ach&&typeof a.ach==="object")?a.ach:{};m.achSeen=(a.achSeen&&typeof a.achSeen==="object")?a.achSeen:{};
  return m;
 }
 let acc=loadAcc();
 function save(){lsSet(ACC_KEY,JSON.stringify(acc))}
+function earn(n){n=Math.max(0,Math.round(n));acc.coins+=n;acc.totalEarned+=n;return n}
 save();
 
 /* 플레이 시간 */
@@ -891,7 +1122,7 @@ function msUntilMidnight(){const n=new Date(),m=new Date(n);m.setHours(24,0,0,0)
 /* 레벨 */
 function addXP(n){
  const ups=[];acc.xp+=n;
- while(acc.xp>=XP_NEED(acc.level)){acc.xp-=XP_NEED(acc.level);acc.level++;const r=20+acc.level*5;acc.coins+=r;ups.push({level:acc.level,reward:r})}
+ while(acc.xp>=XP_NEED(acc.level)){acc.xp-=XP_NEED(acc.level);acc.level++;const r=ECON.levelUp(acc.level);earn(r);ups.push({level:acc.level,reward:r})}
  return ups;
 }
 
@@ -925,10 +1156,10 @@ function announceMissions(list){list.forEach((d,i)=>setTimeout(()=>{showToast(T(
 function claimMission(id){
  ensureDaily();const m=acc.daily.list.find(x=>x.id===id),d=missionDef(id);
  if(!m||!d||m.c||m.p<d.n)return;
- m.c=true;acc.coins+=d.reward;save();Sound.play("claim");coinDelta(d.reward);refreshAll();
+ m.c=true;acc.missionsDone++;earn(d.reward);save();Sound.play("claim");coinDelta(d.reward);refreshAll();
 }
 function canClaimBonus(){ensureDaily();return !acc.daily.bonus&&acc.daily.list.every(m=>m.c)}
-function claimBonus(){if(!canClaimBonus())return;acc.daily.bonus=true;acc.coins+=ALL_CLEAR_BONUS;save();Sound.play("levelup");coinDelta(ALL_CLEAR_BONUS);refreshAll()}
+function claimBonus(){if(!canClaimBonus())return;acc.daily.bonus=true;earn(ALL_CLEAR_BONUS);save();Sound.play("levelup");coinDelta(ALL_CLEAR_BONUS);refreshAll()}
 
 /* 업적 */
 function achReached(a){return a.val()>=a.goal}
@@ -940,7 +1171,7 @@ function checkAchievements(){
 }
 function claimAch(id){
  const a=ACHS.find(x=>x.id===id);if(!a||acc.ach[id]||!achReached(a))return;
- acc.ach[id]=true;acc.coins+=a.reward;save();Sound.play("claim");coinDelta(a.reward);refreshAll();
+ acc.ach[id]=true;earn(a.reward);save();Sound.play("claim");coinDelta(a.reward);refreshAll();
 }
 function claimableMissions(){ensureDaily();return acc.daily.list.filter(m=>!m.c&&m.p>=missionDef(m.id).n).length+(canClaimBonus()?1:0)}
 function claimableAchs(){return ACHS.filter(a=>!acc.ach[a.id]&&achReached(a)).length}
@@ -950,7 +1181,7 @@ function checkDailyVisit(){
  const t=todayStr();
  if(acc.lastVisit===t)return;
  if(acc.lastVisit&&t<acc.lastVisit)return;   // 시계를 되돌린 경우 지급하지 않음
- acc.lastVisit=t;acc.visitDays++;acc.coins+=DAILY_VISIT_REWARD;save();
+ acc.lastVisit=t;acc.visitDays++;earn(DAILY_VISIT_REWARD);save();
  queueModal({ico:"🎁",title:T("daily_title"),body:T("daily_body",{n:acc.visitDays}),reward:"🪙 +"+DAILY_VISIT_REWARD,okText:T("claim"),onOk:()=>{Sound.play("claim");coinDelta(DAILY_VISIT_REWARD);refreshAll()}});
  checkAchievements();
 }
@@ -960,8 +1191,7 @@ function upLevel(id){return acc.upgrades[id]||0}
 function upCost(u){const l=upLevel(u.id);return l>=u.max?null:u.costs[l]}
 function canAffordAnything(){
  return UPGRADES.some(u=>{const c=upCost(u);return c!==null&&acc.coins>=c})
-  ||SKINS.some(s=>!acc.skins.includes(s.id)&&acc.coins>=s.cost)
-  ||TRAILS.some(t=>!acc.trails.includes(t.id)&&acc.coins>=t.cost);
+  ||Object.values(COSMETIC_SETS).some(set=>set.list.some(s=>!acc[set.own].includes(s.id)&&acc.coins>=s.cost));
 }
 function myBuffs(){
  return {massBonus:upLevel("mass")*.18,gripBonus:upLevel("grip")*.0030,powerBonus:upLevel("power")*.04,restBonus:upLevel("bounce")*.06,aim:upLevel("aim")>0};
@@ -983,11 +1213,11 @@ function coinDelta(n){
 }
 function refreshCoins(){document.querySelectorAll(".coinVal").forEach(e=>e.textContent=acc.coins)}
 
-const modalQ=[];let modalBusy=false;
+const modalQ=[];let modalBusy=false,currentModal=null;
 function queueModal(o){modalQ.push(o);pumpModal()}
 function pumpModal(){
  if(modalBusy||!modalQ.length)return;
- const o=modalQ.shift();modalBusy=true;
+ const o=modalQ.shift();modalBusy=true;currentModal=o;
  $("modalIco").textContent=o.ico||"";$("modalTitle").textContent=o.title||"";$("modalBody").textContent=o.body||"";$("modalReward").textContent=o.reward||"";
  const inp=$("modalInput");inp.style.display=o.input?"block":"none";if(o.input){inp.value=o.value||"";inp.placeholder=o.placeholder||""}
  const ok=$("modalOk"),cc=$("modalCancel");
@@ -999,7 +1229,7 @@ function pumpModal(){
  if(o.sound)Sound.play(o.sound);
  if(o.input)setTimeout(()=>{try{inp.focus();inp.select()}catch(e){}},80);
 }
-function closeModal(){$("modal").classList.remove("show");modalBusy=false;setTimeout(pumpModal,200)}
+function closeModal(){$("modal").classList.remove("show");modalBusy=false;currentModal=null;setTimeout(pumpModal,200)}
 
 /* ============================================================
    화면 전환
@@ -1009,6 +1239,7 @@ function isActive(n){return screens[n].classList.contains("active")}
 function go(n){
  Object.values(screens).forEach(s=>s.classList.remove("active"));
  screens[n].classList.add("active");
+ $("toastStack").classList.toggle("low",n!=="game");
  const c=screens[n].querySelector(".content");if(c&&n!=="result")c.scrollTop=0;
  refreshCoins();
  if(n==="menu"){checkDailyVisit();renderMenu()}
@@ -1046,11 +1277,12 @@ function renderBonusRow(){
  if(ready)row.querySelector(".claim-btn").onclick=()=>claimBonus();
  return row;
 }
+function avatarIcon(){const a=AVATARS.find(x=>x.id===acc.avatar);return a&&a.ico?a.ico:titleOf(acc.level)[2]}
 function renderMenu(){
  ensureDaily();
  $("profileNameText").textContent=acc.nickname;
  const tt=titleOf(acc.level),need=XP_NEED(acc.level);
- $("avatarDot").firstChild.nodeValue=tt[2];
+ $("avatarDot").firstChild.nodeValue=avatarIcon();
  $("lvlBadge").textContent=T("level_short",{n:acc.level});
  $("titleChip").textContent=T(tt[1]);
  $("xpFill").style.width=Math.max(3,acc.xp/need*100)+"%";
@@ -1131,7 +1363,7 @@ document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
 });
 Object.keys(stepConfig).forEach(renderStep);
 const practiceState={map:"classic",level:"normal",aiFlags:[]};
-const aiState={map:MAPS[lsGet("alkkagi_ai_map")]?lsGet("alkkagi_ai_map"):"classic"};
+const aiState={map:MAPS[lsGet("alkkagi_ai_map")]?lsGet("alkkagi_ai_map"):"classic",use:{}};
 function buildMapChips(id,s){
  const e=$(id);e.innerHTML="";
  MAP_ORDER.forEach(k=>{
@@ -1149,18 +1381,34 @@ function buildAiChips(id,s){
   c.onclick=()=>{s.level=k;Sound.play("ui");buildAiChips(id,s)};e.appendChild(c);
  });
 }
+/* 연습: 모든 플레이어를 사람/AI 중 자유롭게 (전부 AI면 관전) */
 function renderPracticePlayerList(){
  const w=$("practicePlayerList"),n=stepConfig.players.val;w.innerHTML="";
  for(let i=0;i<n;i++){
-  if(i===0)practiceState.aiFlags[i]=false;
-  else if(practiceState.aiFlags[i]===undefined)practiceState.aiFlags[i]=true;
+  if(practiceState.aiFlags[i]===undefined)practiceState.aiFlags[i]=i>0;
   const r=document.createElement("div");r.className="player-row";
-  r.innerHTML=`<div class="dot" style="background:${PLAYER_COLORS[i%8]}"></div><div class="pname">${T("player_n",{n:i+1})}</div><div class="sw-label">${practiceState.aiFlags[i]?T("sw_ai"):T("sw_human")}</div><div class="switch ${practiceState.aiFlags[i]?"on":""} ${i===0?"locked":""}" data-idx="${i}"><i></i></div>`;
+  r.innerHTML=`<div class="dot" style="background:${PLAYER_COLORS[i%8]}"></div><div class="pname">${T("player_n",{n:i+1})}</div><div class="sw-label">${practiceState.aiFlags[i]?T("sw_ai"):T("sw_human")}</div><div class="switch ${practiceState.aiFlags[i]?"on":""}" data-idx="${i}"><i></i></div>`;
   w.appendChild(r);
  }
- w.querySelectorAll(".switch:not(.locked)").forEach(s=>s.onclick=()=>{
+ w.querySelectorAll(".switch").forEach(s=>s.onclick=()=>{
   const i=+s.dataset.idx;practiceState.aiFlags[i]=!practiceState.aiFlags[i];Sound.play("ui");renderPracticePlayerList();
  });
+}
+function itemCount(id){return acc.items[id]||0}
+function renderBoosters(){
+ const row=$("boosterRow");row.innerHTML="";let any=false;
+ BOOSTERS.forEach(it=>{
+  const n=itemCount(it.id);if(!n)aiState.use[it.id]=false;else any=true;
+  const c=document.createElement("button");
+  c.className="chip booster"+(aiState.use[it.id]?" active":"")+(n?"":" empty");
+  c.innerHTML=`<span class="b-ico">${it.ico}</span>${T(it.nameKey)}<small>×${n}</small>`;
+  c.onclick=()=>{
+   if(!n){Sound.play("ui");shopTab="item";go("shop");return}
+   aiState.use[it.id]=!aiState.use[it.id];Sound.play("ui");renderBoosters();
+  };
+  row.appendChild(c);
+ });
+ $("boosterHint").textContent=any?"":T("booster_none");
 }
 function renderAiConfig(){
  const n=stepConfig.aiPlayers.val;
@@ -1168,6 +1416,7 @@ function renderAiConfig(){
  $("aiLockedChip").textContent=T("ai_locked");
  $("aiRewardPreview").innerHTML=`<span class="c">${T("rp_win",{n:winBaseReward(n)})}</span><span class="x">${T("rp_xp",{n:winXP(n)})}</span><span>${T("rp_entry",{n:AI_ENTRY_COST})}</span>`;
  $("btnStartAI").textContent=T("btn_start_cost",{n:AI_ENTRY_COST});
+ renderBoosters();
  refreshCoins();
 }
 buildMapChips("mapChips-practice",practiceState);buildMapChips("mapChips-ai",aiState);
@@ -1177,31 +1426,81 @@ buildAiChips("aiChips-practice",practiceState);renderPracticePlayerList();
    상점
 ============================================================ */
 let shopTab="upgrade";
+const SHOP_TABS=["upgrade","skin","trail","effect","avatar","item"];
 document.querySelectorAll("#shopTabs .chip").forEach(c=>c.onclick=()=>{shopTab=c.dataset.tab;Sound.play("ui");renderShop()});
 const skinById=id=>SKINS.find(s=>s.id===id)||SKINS[0];
 const trailById=id=>TRAILS.find(t=>t.id===id)||TRAILS[0];
-function spend(c){if(acc.coins<c)return false;acc.coins-=c;save();return true}
+const effectById=id=>EFFECTS.find(t=>t.id===id)||EFFECTS[0];
+function spend(c){if(acc.coins<c)return false;acc.coins-=c;acc.totalSpent+=c;save();return true}
 function failBuy(c){showToast(T("coin_insufficient",{n:c}));Sound.play("back")}
 function buyUpgrade(u){
  const cost=upCost(u);if(cost===null)return;
  if(!spend(cost))return failBuy(cost);
- acc.upgrades[u.id]=upLevel(u.id)+1;save();Sound.play("buy");coinDelta(-cost);showToast(T("purchased"),"good");renderShop();
+ acc.upgrades[u.id]=upLevel(u.id)+1;save();Sound.play("buy");coinDelta(-cost);showToast(T("purchased"),"good");checkAchievements();renderShop();
 }
-function buySkinOrEquip(sk){
- if(acc.skin===sk.id)return;
- if(!acc.skins.includes(sk.id)){if(!spend(sk.cost))return failBuy(sk.cost);acc.skins.push(sk.id);coinDelta(-sk.cost);Sound.play("buy");showToast(T("purchased"),"good")}
- else Sound.play("ui");
- acc.skin=sk.id;save();stoneSpriteCache.clear();checkAchievements();renderShop();
+function buyOrEquip(kind,item){
+ const set=COSMETIC_SETS[kind];if(acc[set.eq]===item.id)return;
+ if(!acc[set.own].includes(item.id)){
+  if(!spend(item.cost))return failBuy(item.cost);
+  acc[set.own].push(item.id);coinDelta(-item.cost);Sound.play("buy");showToast(T("purchased"),"good");
+ }else Sound.play("ui");
+ acc[set.eq]=item.id;save();
+ if(kind==="skin")stoneSpriteCache.clear();
+ checkAchievements();renderShop();
 }
-function buyTrailOrEquip(tr){
- if(acc.trail===tr.id)return;
- if(!acc.trails.includes(tr.id)){if(!spend(tr.cost))return failBuy(tr.cost);acc.trails.push(tr.id);coinDelta(-tr.cost);Sound.play("buy");showToast(T("purchased"),"good")}
- else Sound.play("ui");
- acc.trail=tr.id;save();renderShop();
+function buyItem(it){
+ if(!spend(it.cost))return failBuy(it.cost);
+ coinDelta(-it.cost);
+ if(it.id==="box"){openLuckyBox();return}
+ acc.items[it.id]=itemCount(it.id)+1;save();Sound.play("buy");showToast(T("purchased"),"good");renderShop();
+}
+/* 행운 상자: 55% 확률로 아직 없는 꾸미기 아이템, 아니면 코인 */
+function openLuckyBox(){
+ acc.boxes++;
+ const pool=[];
+ for(const kind in COSMETIC_SETS){const set=COSMETIC_SETS[kind];set.list.forEach(it=>{if(it.cost>0&&!acc[set.own].includes(it.id))pool.push({kind,it})})}
+ let result;
+ if(pool.length&&Math.random()<.55){
+  const pick=pool[Math.floor(Math.random()*pool.length)],set=COSMETIC_SETS[pick.kind];
+  acc[set.own].push(pick.it.id);
+  result={ico:pick.kind==="skin"?"🎨":pick.kind==="trail"?"✨":pick.it.ico,title:T("box_cosmetic",{kind:T("kind_"+pick.kind),name:T(pick.it.nameKey)}),body:T("box_sub"),cosmetic:pick};
+ }else{
+  const table=[[15,30],[25,25],[40,20],[60,13],[100,8],[200,4]];
+  let r=Math.random()*100,amt=15;for(const [v,w] of table){if(r<w){amt=v;break}r-=w}
+  earn(amt);result={ico:"🪙",title:T("box_coins",{n:amt}),body:"",coins:amt};
+ }
+ save();
+ queueModal({ico:"🎁",title:T("item_box"),body:"✨ ✨ ✨",okText:T("open"),sound:"buy",onOk:()=>{
+  queueModal({ico:result.ico,title:result.title,body:result.body,reward:result.coins?"🪙 +"+result.coins:"",sound:"levelup",onOk:()=>{if(result.coins)coinDelta(result.coins);checkAchievements();renderShop()}});
+ }});
+}
+const previewCache=new Map();
+function skinPreview(sk){
+ if(previewCache.has(sk.id))return previewCache.get(sk.id);
+ const c=stoneCanvas(skinColorSpec(sk,0,0),22);const url=c.toDataURL();previewCache.set(sk.id,url);return url;
+}
+function trailPreview(tr){
+ if(!tr.colors.length)return `<div style="width:30px;height:7px;border-radius:99px;background:#22374d"></div>`;
+ const g=tr.rainbow?"linear-gradient(90deg,#ff5c7a,#ffd166,#7ee08a,#55bfff,#c084fc)":`linear-gradient(90deg,${tr.colors[0]},${tr.colors[1]})`;
+ if(tr.style==="dots")return `<div style="display:flex;gap:3px;align-items:center">${[5,8,11].map(s=>`<i style="width:${s}px;height:${s}px;border-radius:50%;border:2px solid ${tr.colors[0]};display:block"></i>`).join("")}</div>`;
+ if(tr.style==="stars")return `<div style="color:${tr.colors[1]};font-size:12px;letter-spacing:-1px;text-shadow:0 0 8px ${tr.colors[0]}">✦★✦</div>`;
+ return `<div style="width:32px;height:${tr.wide?10:7}px;border-radius:99px;background:${g};box-shadow:0 0 14px ${tr.colors[0]}88"></div>`;
+}
+function cosmeticRow(kind,item){
+ const set=COSMETIC_SETS[kind],owned=acc[set.own].includes(item.id),equipped=acc[set.eq]===item.id,afford=acc.coins>=item.cost;
+ let ico;
+ if(kind==="skin")ico=`<div class="si-ico" style="background:transparent;border:none"><img src="${skinPreview(item)}" width="42" height="42" alt=""></div>`;
+ else if(kind==="trail")ico=`<div class="si-ico">${trailPreview(item)}</div>`;
+ else if(kind==="avatar")ico=`<div class="si-ico" style="font-size:24px;border-radius:50%">${item.ico||titleOf(acc.level)[2]}</div>`;
+ else ico=`<div class="si-ico" style="font-size:22px">${item.ico}</div>`;
+ const row=document.createElement("div");row.className="shop-item"+(equipped?" eq":"");
+ row.innerHTML=`${ico}<div class="si-main"><div class="si-title">${T(item.nameKey)}</div><div class="si-desc">${owned?(equipped?T("equipped"):T("owned")):"🪙 "+item.cost}</div></div><button class="buy-btn ${equipped?"equipped":owned?"max":afford?"":"locked"}">${equipped?T("equipped"):owned?T("equip"):"🪙 "+item.cost+"<br>"+T("buy")}</button>`;
+ if(!equipped)row.querySelector(".buy-btn").onclick=()=>buyOrEquip(kind,item);
+ return row;
 }
 function renderShop(){
  document.querySelectorAll("#shopTabs .chip").forEach(c=>c.classList.toggle("active",c.dataset.tab===shopTab));
- $("shopNote").textContent=T(shopTab==="upgrade"?"shop_note_upgrade":shopTab==="skin"?"shop_note_skin":"shop_note_trail");
+ $("shopNote").textContent=T("shop_note_"+shopTab);
  const list=$("shopList");list.innerHTML="";
  if(shopTab==="upgrade"){
   UPGRADES.forEach(u=>{
@@ -1210,21 +1509,15 @@ function renderShop(){
    row.innerHTML=`<div class="si-ico">${u.ico}</div><div class="si-main"><div class="si-title">${T(u.nameKey)}<span class="si-lv">${T("level_of",{a:lv,b:u.max})}</span></div><div class="si-desc">${T(u.descKey)}</div><div class="si-eff">${lv?T(u.effKey,{n:u.eff(lv)}):"&nbsp;"}</div><div class="pips">${Array.from({length:u.max},(_,i)=>`<i class="${i<lv?"on":""}"></i>`).join("")}</div></div><button class="buy-btn ${maxed?"max":afford?"":"locked"}">${maxed?T("maxed"):"🪙 "+cost+"<br>"+T("buy")}</button>`;
    if(!maxed)row.querySelector(".buy-btn").onclick=()=>buyUpgrade(u);list.appendChild(row);
   });
- }else if(shopTab==="skin"){
-  SKINS.forEach(sk=>{
-   const owned=acc.skins.includes(sk.id),equipped=acc.skin===sk.id,afford=acc.coins>=sk.cost,c=sk.colors||["#ffffff",PLAYER_COLORS[0]];
-   const row=document.createElement("div");row.className="shop-item"+(equipped?" eq":"");
-   row.innerHTML=`<div class="si-ico" style="background:transparent;border:none"><div class="skin-preview" style="background:radial-gradient(circle at 34% 30%, ${c[0]}, ${c[1]});box-shadow:0 0 ${Math.round((sk.glow||0)*18)}px ${c[0]}88,inset -3px -3px 6px #0008,inset 3px 3px 6px #ffffff55"></div></div><div class="si-main"><div class="si-title">${T(sk.nameKey)}</div><div class="si-desc">${owned?(equipped?T("equipped"):T("owned")):"🪙 "+sk.cost}</div></div><button class="buy-btn ${equipped?"equipped":owned?"max":afford?"":"locked"}">${equipped?T("equipped"):owned?T("equip"):"🪙 "+sk.cost+"<br>"+T("buy")}</button>`;
-   if(!equipped)row.querySelector(".buy-btn").onclick=()=>buySkinOrEquip(sk);list.appendChild(row);
+ }else if(shopTab==="item"){
+  ITEMS.forEach(it=>{
+   const n=itemCount(it.id),afford=acc.coins>=it.cost;
+   const row=document.createElement("div");row.className="shop-item"+(it.instant?" special":"");
+   row.innerHTML=`<div class="si-ico" style="font-size:22px">${it.ico}</div><div class="si-main"><div class="si-title">${T(it.nameKey)}${it.instant?"":`<span class="si-lv">${T("item_owned",{n})}</span>`}</div><div class="si-desc">${T(it.nameKey+"_desc")}</div></div><button class="buy-btn ${afford?"":"locked"}">🪙 ${it.cost}<br>${it.instant?T("open"):T("buy")}</button>`;
+   row.querySelector(".buy-btn").onclick=()=>buyItem(it);list.appendChild(row);
   });
  }else{
-  TRAILS.forEach(tr=>{
-   const owned=acc.trails.includes(tr.id),equipped=acc.trail===tr.id,afford=acc.coins>=tr.cost;
-   const preview=tr.colors.length?`background:linear-gradient(90deg,${tr.colors[0]},${tr.colors[1]})`:"background:#22374d";
-   const row=document.createElement("div");row.className="shop-item"+(equipped?" eq":"");
-   row.innerHTML=`<div class="si-ico"><div style="width:30px;height:7px;border-radius:99px;${preview};box-shadow:0 0 14px #ffffff44"></div></div><div class="si-main"><div class="si-title">${T(tr.nameKey)}</div><div class="si-desc">${owned?(equipped?T("equipped"):T("owned")):"🪙 "+tr.cost}</div></div><button class="buy-btn ${equipped?"equipped":owned?"max":afford?"":"locked"}">${equipped?T("equipped"):owned?T("equip"):"🪙 "+tr.cost+"<br>"+T("buy")}</button>`;
-   if(!equipped)row.querySelector(".buy-btn").onclick=()=>buyTrailOrEquip(tr);list.appendChild(row);
-  });
+  COSMETIC_SETS[shopTab].list.forEach(item=>list.appendChild(cosmeticRow(shopTab,item)));
  }
  refreshCoins();
 }
@@ -1464,23 +1757,48 @@ function handleResize(){if(!isActive("game"))return;fitCanvas();if(game.engine)r
 window.addEventListener("resize",handleResize);
 window.addEventListener("orientationchange",()=>setTimeout(handleResize,250));
 
-function stoneColors(s,e){
- const base=PLAYER_COLORS[s.owner%8];
- if(e&&s.owner===e.skinSlot){const sk=skinById(acc.skin);if(sk.colors)return{hi:sk.colors[0],lo:sk.colors[1],glow:sk.glow||.4,ring:sk.colors[0]}}
- return{hi:"#ffffff",lo:base,glow:.2,ring:base};
+/* ---- 알 그리기 (스킨 · 무늬) ---- */
+function hslHex(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return "#"+[f(0),f(8),f(4)].map(x=>Math.round(x*255).toString(16).padStart(2,"0")).join("")}
+function rainbowHue(now){return Math.floor(((now||performance.now())/40)%360/15)*15}
+function skinColorSpec(sk,owner,now){
+ if(!sk||!sk.colors)return{hi:"#ffffff",lo:PLAYER_COLORS[owner%8],glow:.2,ring:PLAYER_COLORS[owner%8]};
+ if(sk.rainbow){const h=rainbowHue(now),c=hslHex(h,90,58);return{hi:"#ffffff",lo:c,glow:sk.glow,ring:hslHex((h+60)%360,95,65),emblem:"star",ec:"#ffffffdd",key:"rb"+h}}
+ return{hi:sk.colors[0],lo:sk.colors[1],glow:sk.glow||.4,ring:sk.colors[0],emblem:sk.emblem,ec:sk.ec};
 }
-function getStoneSprite(s,e){
- const c=stoneColors(s,e),r=Math.max(6,Math.round(s.r)),key=[r,c.hi,c.lo,c.glow].join("|");
- const cached=stoneSpriteCache.get(key);if(cached)return cached;
+function stoneColors(s,e){
+ if(e&&s.owner===e.skinSlot)return skinColorSpec(skinById(acc.skin),s.owner);
+ return skinColorSpec(null,s.owner);
+}
+function starPath(o,cx,cy,R,r,n){o.beginPath();for(let i=0;i<n*2;i++){const a=-Math.PI/2+i*Math.PI/n,rr=i%2?r:R;o.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr)}o.closePath()}
+function stoneCanvas(c,r){
  const pad=Math.ceil(r*1.5),size=pad*2,oc=document.createElement("canvas");oc.width=size;oc.height=size;const o=oc.getContext("2d");
  const glow=o.createRadialGradient(pad,pad,r*.8,pad,pad,r*(1.25+c.glow*.3));glow.addColorStop(0,c.ring+"88");glow.addColorStop(1,c.ring+"00");
  o.beginPath();o.arc(pad,pad,r*(1.25+c.glow*.3),0,Math.PI*2);o.fillStyle=glow;o.fill();
  o.beginPath();o.arc(pad+r*.08,pad+r*.14,r,0,Math.PI*2);o.fillStyle="#00000066";o.fill();
  const q=o.createRadialGradient(pad-r*.32,pad-r*.32,r*.1,pad,pad,r);q.addColorStop(0,c.hi);q.addColorStop(.3,c.lo);q.addColorStop(1,"#000000aa");
  o.beginPath();o.arc(pad,pad,r,0,Math.PI*2);o.fillStyle=q;o.fill();
+ if(c.emblem){
+  o.save();o.beginPath();o.arc(pad,pad,r*.96,0,Math.PI*2);o.clip();
+  o.fillStyle=c.ec;o.strokeStyle=c.ec;
+  if(c.emblem==="stripe"){o.translate(pad,pad);o.rotate(-.55);o.globalAlpha=.55;o.fillRect(-r*1.2,-r*.2,r*2.4,r*.4);o.globalAlpha=.3;o.fillRect(-r*1.2,r*.42,r*2.4,r*.16);o.fillRect(-r*1.2,-r*.58,r*2.4,r*.16)}
+  else if(c.emblem==="ring"){o.globalAlpha=.7;o.lineWidth=r*.13;o.beginPath();o.arc(pad,pad,r*.58,0,Math.PI*2);o.stroke()}
+  else if(c.emblem==="dots"){o.globalAlpha=.85;for(let i=0;i<5;i++){const a=i*Math.PI*2/5-Math.PI/2;o.beginPath();o.arc(pad+Math.cos(a)*r*.48,pad+Math.sin(a)*r*.48,r*.13,0,Math.PI*2);o.fill()}o.beginPath();o.arc(pad,pad,r*.16,0,Math.PI*2);o.fill()}
+  else if(c.emblem==="star"){o.globalAlpha=.8;starPath(o,pad,pad+r*.04,r*.52,r*.22,5);o.fill()}
+  else if(c.emblem==="sparkle"){const pts=[[-.4,-.3,.09],[.35,-.45,.06],[.5,.2,.08],[-.15,.45,.07],[.05,-.05,.05],[-.55,.2,.05],[.25,.5,.04]];pts.forEach(([x,y,s])=>{starPath(o,pad+x*r,pad+y*r,r*s*1.8,r*s*.5,4);o.fill()})}
+  else if(c.emblem==="crown"){o.globalAlpha=.95;const w=r*.95,h=r*.6,x=pad-w/2,y=pad-h/2+r*.05;o.beginPath();o.moveTo(x,y+h);o.lineTo(x,y+h*.2);o.lineTo(x+w*.25,y+h*.55);o.lineTo(x+w*.5,y);o.lineTo(x+w*.75,y+h*.55);o.lineTo(x+w,y+h*.2);o.lineTo(x+w,y+h);o.closePath();o.fill()}
+  o.restore();
+ }
  o.beginPath();o.ellipse(pad-r*.3,pad-r*.38,r*.28,r*.16,-.6,0,Math.PI*2);o.fillStyle="#ffffff88";o.fill();
- stoneSpriteCache.set(key,oc);return oc;
+ return oc;
 }
+function getStoneSprite(s,e,now){
+ let c=stoneColors(s,e);
+ if(e&&s.owner===e.skinSlot&&skinById(acc.skin).rainbow)c=skinColorSpec(skinById(acc.skin),s.owner,now);
+ const r=Math.max(6,Math.round(s.r)),key=[r,c.key||c.hi,c.lo,c.glow,c.emblem||""].join("|");
+ const cached=stoneSpriteCache.get(key);if(cached)return cached;
+ const oc=stoneCanvas(c,r);stoneSpriteCache.set(key,oc);return oc;
+}
+
 function buildStaticBoard(e){
  const key=`${e.mapDef.id}|${Math.round(boardPx)}|${e.boardR.toFixed(2)}`;
  if(staticBoardCanvas&&staticBoardKey===key)return staticBoardCanvas;
@@ -1505,13 +1823,15 @@ function buildStaticBoard(e){
  staticBoardCanvas=oc;staticBoardKey=key;return oc;
 }
 function recordTrail(e){
- if(acc.trail==="none")return;
+ if(acc.trail==="none"||e.skinSlot<0)return;
  for(const s of e.stones){
+  if(s.owner!==e.skinSlot)continue;
   let arr=trailHistory.get(s.id)||[];
   if(s.alive&&(s.vx||s.vy)){const last=arr[arr.length-1];if(!last||Math.hypot(s.x-last.x,s.y-last.y)>1.2)arr.push({x:s.x,y:s.y})}
   else if(arr.length)arr.shift();
   if(!s.alive)arr=[];
-  if(arr.length>9)arr.splice(0,arr.length-9);trailHistory.set(s.id,arr);
+  const cap=trailById(acc.trail).style==="line"?9:14;
+  if(arr.length>cap)arr.splice(0,arr.length-cap);trailHistory.set(s.id,arr);
  }
 }
 function hexA(hex,a){return hex+Math.round(Math.max(0,Math.min(1,a))*255).toString(16).padStart(2,"0")}
@@ -1519,50 +1839,89 @@ function spawnBurst(x,y,color,n,speed){
  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=(.4+Math.random())*speed;fx.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,decay:.018+Math.random()*.02,color,size:1.5+Math.random()*3})}
 }
 function spawnFloater(x,y,text,color,size){fx.floaters.push({x,y,text,color:color||"#fff",size:size||18,life:1})}
+const FX_PALETTE=["#ff5c7a","#ffd166","#7ee08a","#55bfff","#c084fc","#64f3d0","#ff9f5c"];
+/* 넉아웃 효과 (상점 › 효과) */
+function spawnKOEffect(id,x,y,color,r){
+ const P=fx.particles,rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.floor(Math.random()*a.length)];
+ switch(id){
+  case"fireworks":
+   for(let k=0;k<3;k++){const c=pick(FX_PALETTE),ox=rnd(-r*1.5,r*1.5),oy=rnd(-r*1.5,r*1.5);for(let i=0;i<22;i++){const a=i/22*Math.PI*2,v=rnd(2.5,4.5);P.push({x:x+ox,y:y+oy,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,decay:.016,color:c,size:2.2,g:.05})}fx.rings.push({x:x+ox,y:y+oy,r:r*.5,v:2.6,life:1,color:c})}
+   break;
+  case"confetti":
+   for(let i=0;i<40;i++){const a=rnd(-Math.PI,0),v=rnd(2,6);P.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,life:1,decay:.012,color:pick(FX_PALETTE),size:rnd(3,5),shape:"rect",rot:rnd(0,6),vr:rnd(-.3,.3),g:.12})}
+   break;
+  case"hearts":
+   for(let i=0;i<16;i++){const a=rnd(0,Math.PI*2),v=rnd(1,3);P.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1.2,life:1,decay:.013,color:pick(["#ff5c9a","#ff8fb8","#ff3d6e"]),size:rnd(12,20),shape:"text",ch:"♥"})}
+   fx.rings.push({x,y,r,v:2.4,life:1,color:"#ff8fb8"});break;
+  case"lightning":
+   for(let i=0;i<7;i++){const a=i/7*Math.PI*2+rnd(-.2,.2);P.push({x,y,vx:0,vy:0,life:1,decay:.05,color:"#bfe9ff",size:r*rnd(2.2,3.4),shape:"bolt",ang:a,seed:Math.random()*1000})}
+   fx.rings.push({x,y,r,v:4,life:1,color:"#9ad8ff"});fx.rings.push({x,y,r:r*.4,v:2.2,life:1,color:"#ffffff"});fx.shake=Math.max(fx.shake,13);break;
+  case"coins":
+   for(let i=0;i<14;i++){const a=rnd(-Math.PI*.9,-Math.PI*.1),v=rnd(3,6.5);P.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1,decay:.013,color:"#ffd166",size:rnd(13,19),shape:"text",ch:"🪙",g:.2})}
+   break;
+  case"blackhole":
+   for(let i=0;i<36;i++){const a=rnd(0,Math.PI*2),d=r*rnd(2.2,3.6),v=d/28;P.push({x:x+Math.cos(a)*d,y:y+Math.sin(a)*d,vx:-Math.cos(a)*v,vy:-Math.sin(a)*v,life:1,decay:.03,color:pick(["#c084fc","#7d2cff","#ffffff"]),size:rnd(1.5,3.2),noDrag:true})}
+   fx.rings.push({x,y,r:r*3.2,v:-2.2,life:1,color:"#a066ff"});fx.rings.push({x,y,r:r*2.2,v:-1.4,life:1,color:"#ffffff"});break;
+  default:
+   spawnBurst(x,y,color,26,4);spawnBurst(x,y,"#ffffff",8,2.5);fx.rings.push({x,y,r,v:3,life:1,color});
+ }
+}
 function updateFx(dt){
  const k=dt/16.67;
- fx.particles=fx.particles.filter(p=>{p.x+=p.vx*k;p.y+=p.vy*k;p.vx*=.95;p.vy*=.95;p.life-=p.decay*k;return p.life>0});
+ fx.particles=fx.particles.filter(p=>{p.x+=p.vx*k;p.y+=p.vy*k;if(!p.noDrag){p.vx*=.95;p.vy*=.95}if(p.g)p.vy+=p.g*k;if(p.vr)p.rot+=p.vr*k;p.life-=p.decay*k;return p.life>0});
  fx.floaters=fx.floaters.filter(f=>{f.y-=.55*k;f.life-=.014*k;return f.life>0});
- fx.rings=fx.rings.filter(r=>{r.r+=r.v*k;r.life-=.035*k;return r.life>0});
+ fx.rings=fx.rings.filter(r=>{r.r+=r.v*k;r.life-=.035*k;return r.life>0&&r.r>0});
  fx.shake=Math.max(0,fx.shake-.6*k);
+}
+function drawParticle(p){
+ ctx.globalAlpha=Math.max(0,Math.min(1,p.life*1.3));
+ if(p.shape==="rect"){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size*.3,p.size,p.size*.6);ctx.restore()}
+ else if(p.shape==="text"){ctx.font=`${Math.round(p.size)}px sans-serif`;ctx.fillStyle=p.color;ctx.fillText(p.ch,p.x,p.y)}
+ else if(p.shape==="bolt"){
+  let s=p.seed;const rnd=()=>{s=(s*9301+49297)%233280;return s/233280-.5};
+  ctx.beginPath();ctx.moveTo(p.x,p.y);const n=6,ca=Math.cos(p.ang),sa=Math.sin(p.ang);
+  for(let i=1;i<=n;i++){const d=p.size*i/n,j=rnd()*p.size*.25;ctx.lineTo(p.x+ca*d-sa*j,p.y+sa*d+ca*j)}
+  ctx.strokeStyle=p.color;ctx.lineWidth=2.5*p.life+.5;ctx.shadowColor="#9ad8ff";ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;
+ }
+ else{ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life+.3,0,Math.PI*2);ctx.fill()}
+}
+function drawTrails(e,now){
+ const tr=trailById(acc.trail);if(!tr.colors.length||e.skinSlot<0)return;
+ ctx.save();ctx.lineCap="round";
+ for(const [id,arr] of trailHistory){
+  if(arr.length<2)continue;const s=e.stones[id];if(!s||s.owner!==e.skinSlot)continue;
+  for(let i=1;i<arr.length;i++){
+   const a=arr[i-1],b=arr[i],t=i/arr.length;
+   const col=tr.rainbow?hslHex((now/6+i*28)%360,95,62):tr.colors[i%2];
+   if(tr.style==="dots"){ctx.strokeStyle=hexA(col,t*.8);ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(b.x,b.y,Math.max(1.5,s.r*.45*t),0,Math.PI*2);ctx.stroke()}
+   else if(tr.style==="stars"){if(i%2)continue;ctx.fillStyle=hexA(col,t*.9);starPath(ctx,b.x,b.y,s.r*.42*t+1.5,s.r*.15*t+.6,4);ctx.fill()}
+   else{ctx.strokeStyle=hexA(col,t*.6);ctx.lineWidth=Math.max(2,s.r*(tr.wide?1.1:.75)*t);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+  }
+ }
+ ctx.restore();
 }
 function drawBoard(e,now){
  ctx.clearRect(0,0,boardPx,boardPx);if(!e)return;
  ctx.save();
  if(fx.shake>0)ctx.translate((Math.random()-.5)*fx.shake,(Math.random()-.5)*fx.shake);
  ctx.drawImage(buildStaticBoard(e),0,0,boardPx,boardPx);
- // 궤적
- const tc=trailById(acc.trail).colors;
- if(tc.length){
-  ctx.save();ctx.lineCap="round";
-  for(const [id,arr] of trailHistory){
-   if(arr.length<2)continue;const s=e.stones[id];if(!s||s.owner!==e.skinSlot)continue;
-   for(let i=1;i<arr.length;i++){const a=arr[i-1],b=arr[i],t=i/arr.length;ctx.strokeStyle=hexA(tc[i%2],t*.55);ctx.lineWidth=Math.max(2,s.r*.75*t);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
-  }
-  ctx.restore();
- }
- // 충격 링
+ drawTrails(e,now);
  for(const r of fx.rings){ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);ctx.strokeStyle=hexA(r.color,r.life*.7);ctx.lineWidth=2.5*r.life+.5;ctx.stroke()}
- // 조준 (사람)
  const aim=game.dragging&&aimInfo?aimInfo:null;
  if(aim)drawAim(e,aim.stone,aim.stone.x-aim.px,aim.stone.y-aim.py,true);
- // 조준 (AI 연출)
  if(game.aiAim){const a=game.aiAim,t=Math.min(1,(now-a.t0)/a.dur);drawAim(e,a.stone,a.dx*t,a.dy*t,false)}
- // 알
  const pulse=.5+.5*Math.sin(now/180);
  for(const s of e.stones){
   if(!s.alive)continue;
-  const sprite=getStoneSprite(s,e),pad=sprite.width/2,scale=s.r/Math.max(6,Math.round(s.r));
+  const sprite=getStoneSprite(s,e,now),pad=sprite.width/2,scale=s.r/Math.max(6,Math.round(s.r));
   ctx.drawImage(sprite,s.x-pad*scale,s.y-pad*scale,sprite.width*scale,sprite.height*scale);
+  if(s.owner===e.skinSlot&&game.mode==="ai"){ctx.beginPath();ctx.arc(s.x,s.y,s.r+1.2,0,Math.PI*2);ctx.strokeStyle="#ffffffaa";ctx.lineWidth=1.6;ctx.stroke()}
   const active=e.turn===s.owner&&!e.moving&&game.active;
-  if(active){ctx.beginPath();ctx.arc(s.x,s.y,s.r+3+pulse*2.5,0,Math.PI*2);ctx.strokeStyle=hexA("#ffffff",.35+pulse*.45);ctx.lineWidth=2;ctx.stroke()}
-  if(s.owner===e.skinSlot&&game.mode==="ai"){ctx.beginPath();ctx.arc(s.x,s.y,s.r*.28,0,Math.PI*2);ctx.fillStyle="#ffffffcc";ctx.fill()}
+  if(active){ctx.beginPath();ctx.arc(s.x,s.y,s.r+3.5+pulse*2.5,0,Math.PI*2);ctx.strokeStyle=hexA("#ffffff",.35+pulse*.45);ctx.lineWidth=2;ctx.stroke()}
  }
- // 파티클
- for(const p of fx.particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life+.3,0,Math.PI*2);ctx.fill()}
- ctx.globalAlpha=1;
- // 떠오르는 글자
  ctx.textAlign="center";ctx.textBaseline="middle";
+ for(const p of fx.particles)drawParticle(p);
+ ctx.globalAlpha=1;
  for(const f of fx.floaters){
   const sc=f.life>.85?1+(f.life-.85)*2:1;
   ctx.globalAlpha=Math.min(1,f.life*1.6);ctx.font=`900 ${Math.round(f.size*sc)}px -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif`;
@@ -1571,6 +1930,7 @@ function drawBoard(e,now){
  ctx.globalAlpha=1;
  ctx.restore();
 }
+
 function drawAim(e,s,dx,dy,human){
  if(!s||!s.alive)return;
  const maxPull=MAX_PULL*e.scale,d=Math.hypot(dx,dy);if(d<2)return;
@@ -1610,14 +1970,14 @@ function bindEngine(e){
  e.onShoot=(p,s)=>{Sound.play("shoot",p);spawnBurst(s.x,s.y,PLAYER_COLORS[s.owner%8],6,1.6+p*2)};
  e.onOut=s=>{
   const color=stoneColors(s,e).lo;
-  spawnBurst(s.x,s.y,color,26,4);spawnBurst(s.x,s.y,"#ffffff",8,2.5);
-  fx.rings.push({x:s.x,y:s.y,r:s.r,v:3,life:1,color});
+  const myKO=game.mode==="ai"&&game.shooter===0&&s.owner!==0;
+  spawnKOEffect(myKO?acc.effect:"basic",s.x,s.y,color,s.r);
   fx.shake=Math.max(fx.shake,7);
   const mine=s.owner===0&&game.mode==="ai";
   Sound.play(mine?"myout":"out");
   if(game.shooter>=0&&s.owner!==game.shooter){
    game.shotKOs++;
-   if(game.shooter===0&&game.mode==="ai"){game.myKOs++;spawnFloater(s.x,s.y-s.r*1.5,"+2🪙","#ffd166",15)}
+   if(game.shooter===0&&game.mode==="ai"){game.myKOs++;spawnFloater(s.x,s.y-s.r*1.5,"+"+ECON.ko+"🪙","#ffd166",15)}
    else spawnFloater(s.x,s.y-s.r*1.5,"OUT","#ff8da1",15);
   }else spawnFloater(s.x,s.y-s.r*1.5,"OUT","#ff8da1",15);
   if(mine)game.myLost++;
@@ -1626,19 +1986,22 @@ function bindEngine(e){
 }
 function startGame(cfg){
  if(cfg.mode==="ai"){
-  if(acc.coins<AI_ENTRY_COST){failBuy(AI_ENTRY_COST);return false}
-  acc.coins-=AI_ENTRY_COST;save();
+  if(!spend(AI_ENTRY_COST)){failBuy(AI_ENTRY_COST);return false}
+  const b={};for(const id in (cfg.boost||{})){if(id==="shield"&&acc.curStreak===0)continue;   // 지킬 연승이 없으면 보호막은 아껴 둠
+   if(cfg.boost[id]&&itemCount(id)>0){acc.items[id]--;b[id]=true}}
+  cfg.boost=b;save();
  }
  clearGameTimers();
  game.cfg=cfg;game.gen++;game.active=true;game.mode=cfg.mode;
  game.shooter=-1;game.shotKOs=0;game.myKOs=0;game.myLost=0;game.comboCoins=0;game.bestShotCombo=0;
  game.dragging=null;game.aiAim=null;game.acc=0;game.lastTurnShown=-1;aimInfo=null;
- game.aimAssist=upLevel("aim")>0;
+ game.aimAssist=cfg.mode==="ai"&&upLevel("aim")>0;   // 연습에는 강화 미적용
  fx.particles.length=0;fx.floaters.length=0;fx.rings.length=0;fx.shake=0;trailHistory.clear();
  go("game");fitCanvas();
  if(cfg.mode==="ai")coinDelta(-AI_ENTRY_COST);
- const e=new Engine({map:cfg.map,playerCount:cfg.players,stoneCount:cfg.stones,boardPx,buffSlot:0,buffs:myBuffs()});
- e.skinSlot=0;
+ const ai=cfg.mode==="ai";
+ const e=new Engine({map:cfg.map,playerCount:cfg.players,stoneCount:cfg.stones,boardPx,buffSlot:ai?0:-1,buffs:ai?myBuffs():null});
+ e.skinSlot=ai?0:-1;                     // 스킨·궤적·효과는 AI 대전에서만
  game.engine=e;game.aiFlags=cfg.aiFlags.slice();game.aiLevel=cfg.aiLevel;
  let aiNo=0;
  game.names=Array.from({length:cfg.players},(_,i)=>{
@@ -1647,7 +2010,7 @@ function startGame(cfg){
   return T("ai_n",{n:++aiNo});
  });
  bindEngine(e);
- $("modePill").innerHTML=cfg.mode==="ai"?`${T("mode_ai")} · ${T(MAPS[cfg.map].nameKey)}`:`${T("mode_practice")} · ${T(MAPS[cfg.map].nameKey)}`;
+ $("modePill").innerHTML=cfg.mode==="ai"?`${T("mode_ai")} · ${T(MAPS[cfg.map].nameKey)}${Object.keys(cfg.boost).map(id=>" "+ITEMS.find(i=>i.id===id).ico).join("")}`:`${T("mode_practice")} · ${T(MAPS[cfg.map].nameKey)}`;
  setHudPlayersHidden(false);renderSpeedBtn();renderSoundToggles();
  clearAimState();buildHudPlayers();
  const g=game.gen;game.lastT=performance.now();
@@ -1695,7 +2058,7 @@ function afterTurnChange(){
  renderHUD();clearTimeout(game.aiTimer);clearInterval(game.turnTimer);
  if(game.lastTurnShown!==e.turn||game.names.length===2){showTurnBanner();game.lastTurnShown=e.turn}
  if(game.aiFlags[e.turn]){
-  $("gameHint").textContent=T("hint_ai_turn");$("powerWrap").classList.add("off");$("timerRing").style.strokeDashoffset=0;
+  $("gameHint").textContent=game.mode==="practice"&&game.aiFlags.every(Boolean)?T("hint_spectate"):T("hint_ai_turn");$("powerWrap").classList.add("off");$("timerRing").style.strokeDashoffset=0;
   scheduleAI();
  }else{
   $("gameHint").textContent=game.mode==="practice"?T("hint_practice",{name:game.names[e.turn]}):T("hint_default");
@@ -1706,12 +2069,13 @@ function afterTurnChange(){
 }
 function startTurnTimer(){
  clearInterval(game.turnTimer);
- const g=game.gen;game.turnDeadline=performance.now()+TURN_TIME_LIMIT*1000;let lastSec=TURN_TIME_LIMIT;
+ const limit=TURN_TIME_LIMIT+(game.mode==="ai"&&game.engine.turn===0?UPGRADES.find(u=>u.id==="clock").eff(upLevel("clock")):0);
+ const g=game.gen;game.turnDeadline=performance.now()+limit*1000;let lastSec=limit;
  const ring=$("timerRing");ring.style.strokeDashoffset=0;ring.style.stroke="#64f3d0";
  game.turnTimer=setInterval(()=>{
   if(game.gen!==g||!game.active){clearInterval(game.turnTimer);return}
   const e=game.engine;if(e.moving)return;
-  const left=Math.max(0,game.turnDeadline-performance.now()),r=left/(TURN_TIME_LIMIT*1000);
+  const left=Math.max(0,game.turnDeadline-performance.now()),r=left/(limit*1000);
   ring.style.strokeDashoffset=(97.4*(1-r)).toFixed(1);ring.style.stroke=r<.25?"#ff5c78":r<.5?"#ffd166":"#64f3d0";
   const sec=Math.ceil(left/1000);if(sec<=5&&sec!==lastSec&&sec>0)Sound.play("tick");lastSec=sec;
   if(left<=0){clearInterval(game.turnTimer);clearAimState();showToast(T("timeout_skip"));e.nextTurn();afterTurnChange()}
@@ -1742,7 +2106,7 @@ function onSettle(){
   const key="combo_"+Math.min(5,ko),cx=e.cx,cy=e.cy-e.boardR*.15;
   spawnFloater(cx,cy,T(key),ko>=3?"#ff9f5c":"#ffd166",ko>=3?34:28);Sound.play("combo");fx.shake=Math.max(fx.shake,11);
   if(sh===0&&game.mode==="ai"){
-   const bonus=5*(ko-1);game.comboCoins+=bonus;game.bestShotCombo=Math.max(game.bestShotCombo,ko);
+   const bonus=ECON.combo*(ko-1);game.comboCoins+=bonus;game.bestShotCombo=Math.max(game.bestShotCombo,ko);
    spawnFloater(cx,cy+34,"+"+bonus+" 🪙","#ffd166",18);
    announceMissions(missionEvent("combo"));
   }
@@ -1797,30 +2161,41 @@ let lastResult=null;
 function endGame(){
  const e=game.engine,cfg=game.cfg;if(!e||!cfg)return;
  game.active=false;clearGameTimers();
- const res={mode:cfg.mode,players:cfg.players,map:cfg.map,draw:!!e.draw,winner:e.winner,rows:[],coins:0,xp:0,ups:[],streakBefore:acc.curStreak};
+ const res={mode:cfg.mode,players:cfg.players,map:cfg.map,draw:!!e.draw,winner:e.winner,rows:[],coins:0,xp:0,ups:[],streakBefore:acc.curStreak,shielded:false};
  if(cfg.mode==="practice"){
   acc.practiceGames++;save();
   announceMissions(missionEvent("practice"));
   Sound.play("win");
  }else{
-  const won=!res.draw&&res.winner===0,n=cfg.players;res.won=won;
+  const won=!res.draw&&res.winner===0,n=cfg.players,b=cfg.boost||{};res.won=won;res.boost=b;
   acc.games++;
-  const koCoins=game.myKOs*2;let total=0;
+  let total=0;
   res.rows.push({label:T("rw_entry"),v:-AI_ENTRY_COST,neg:true});
   if(won){
    acc.wins++;acc.curStreak++;acc.bestStreak=Math.max(acc.bestStreak,acc.curStreak);
-   const base=winBaseReward(n),pct=Math.min(acc.curStreak-1,5)*10,streak=Math.round(base*pct/100);
+   acc.mapWins[cfg.map]=(acc.mapWins[cfg.map]||0)+1;
+   if(n===8)acc.win8++;
+   if(cfg.stones>=2&&e.aliveCountFor(0)===1)acc.clutch++;
+   const base=winBaseReward(n),pct=Math.min((acc.curStreak-1)*ECON.streakStep,ECON.streakMax),streak=Math.round(base*pct/100);
    res.rows.push({label:T("rw_win"),v:base});total+=base;
    if(streak>0){res.rows.push({label:T("rw_streak",{p:pct}),v:streak});total+=streak}
-   if(game.myLost===0){res.rows.push({label:T("rw_perfect"),v:10});total+=10}
-   if(n===8)acc.win8=1;
-  }else acc.curStreak=0;
+   if(game.myLost===0){acc.perfects++;res.rows.push({label:T("rw_perfect"),v:ECON.perfect});total+=ECON.perfect}
+  }else{
+   if(b.shield&&acc.curStreak>0){res.shielded=true}else acc.curStreak=0;
+  }
+  const koCoins=game.myKOs*ECON.ko;
   if(koCoins){res.rows.push({label:T("rw_ko",{n:game.myKOs}),v:koCoins});total+=koCoins}
   if(game.comboCoins){res.rows.push({label:T("rw_combo"),v:game.comboCoins});total+=game.comboCoins}
-  res.coins=total;acc.coins+=total;
+  const luckPct=UPGRADES.find(u=>u.id==="luck").eff(upLevel("luck"));
+  if(luckPct&&total>0){const v=Math.round(total*luckPct/100);if(v>0){res.rows.push({label:T("rw_luck",{p:luckPct}),v});total+=v}}
+  if(b.double&&total>0){res.rows.push({label:T("rw_double"),v:total});total*=2}
+  if(b.insure&&!won){res.rows.push({label:T("rw_insure"),v:AI_ENTRY_COST});total+=AI_ENTRY_COST}
+  res.coins=earn(total);
   acc.knockouts+=game.myKOs;acc.bestCombo=Math.max(acc.bestCombo,game.bestShotCombo);
-  res.xp=(won?winXP(n):12)+game.myKOs*4;
-  res.ups=addXP(res.xp);
+  let xp=(won?winXP(n):12)+game.myKOs*4;
+  xp=Math.round(xp*(1+UPGRADES.find(u=>u.id==="scholar").eff(upLevel("scholar"))/100));
+  if(b.xpboost)xp*=2;
+  res.xp=xp;res.ups=addXP(xp);
   save();
   const done=[...missionEvent("ai_game"),...(won?missionEvent("ai_win"):[]),...(game.myKOs?missionEvent("ko",game.myKOs):[]),
    ...(cfg.map!=="classic"?missionEvent("map_"+cfg.map):[]),...(won&&n>=6?missionEvent("big_win"):[]),...(won&&game.myLost===0?missionEvent("flawless"):[])];
@@ -1831,6 +2206,7 @@ function endGame(){
  showResult(res);
  checkAchievements();
 }
+
 function showResult(res){
  go("result");
  const title=$("resultTitle"),medal=$("resultMedal");
@@ -1846,7 +2222,8 @@ function showResult(res){
   medal.textContent=res.won?"🏆":res.draw?"🤝":"💥";
   title.textContent=res.won?T("result_win"):res.draw?T("result_draw"):T("result_lose");title.classList.add(res.won?"win":"lose");
   $("resultSub").textContent=T("result_sub_ai",{n:res.players,map:T(MAPS[res.map].nameKey)});
-  if(res.won&&acc.curStreak>=2)$("resultStreak").textContent=T("streak_now",{n:acc.curStreak,p:Math.min(acc.curStreak,5)*10});
+  if(res.shielded)$("resultStreak").textContent=T("rw_shield",{n:acc.curStreak});
+  else if(res.won&&acc.curStreak>=2)$("resultStreak").textContent=T("streak_now",{n:acc.curStreak,p:Math.min(acc.curStreak*ECON.streakStep,ECON.streakMax)});
   else if(!res.won&&res.streakBefore>=2)$("resultStreak").textContent=T("streak_broken");
   const bd=$("resultBreakdown");
   bd.innerHTML=res.rows.map((r,i)=>`<div class="rw-row ${r.neg?"neg":""}" style="animation-delay:${i*.08}s"><span>${escapeHtml(r.label)}</span><b>${r.v>0?"+":""}${r.v} 🪙</b></div>`).join("")+
@@ -1854,7 +2231,7 @@ function showResult(res){
   countUp($("rwTotal"),res.coins,res.rows.length*80+150);
   if(res.coins>0)setTimeout(()=>{if(isActive("result")){coinDelta(res.coins);Sound.play("coin")}},res.rows.length*80+300);
   const xc=$("resultXp");xc.style.display="block";
-  $("resultXpGain").textContent=T("xp_gain",{n:res.xp});
+  $("resultXpGain").textContent=T(res.boost&&res.boost.xpboost?"xp_boosted":"xp_gain",{n:res.xp});
   $("resultLv").textContent=T("level_short",{n:acc.level})+" · "+T(titleOf(acc.level)[1]);
   const need=XP_NEED(acc.level),fill=$("resultXpFill");
   fill.style.transition="none";fill.style.width=res.ups.length?"0%":Math.max(0,(acc.xp-res.xp)/need*100)+"%";void fill.offsetWidth;
@@ -1894,15 +2271,16 @@ function startPractice(){
 }
 function startAIBattle(){
  const n=stepConfig.aiPlayers.val;
- startGame({mode:"ai",players:n,stones:stepConfig.aiStones.val,map:aiState.map,aiFlags:Array.from({length:n},(_,i)=>i>0),aiLevel:BATTLE_AI_LEVEL});
+ const boost={};BOOSTERS.forEach(it=>{if(aiState.use[it.id]&&itemCount(it.id)>0)boost[it.id]=true});
+ startGame({mode:"ai",players:n,stones:stepConfig.aiStones.val,map:aiState.map,aiFlags:Array.from({length:n},(_,i)=>i>0),aiLevel:BATTLE_AI_LEVEL,boost});
 }
 $("btnStartPractice").onclick=()=>{Sound.unlock();Sound.play("ui");startPractice()};
 $("btnStartAI").onclick=()=>{Sound.unlock();Sound.play("ui");startAIBattle()};
 $("btnResultAgain").onclick=()=>{
  Sound.play("ui");const cfg=game.cfg;cleanupGame();
  if(!cfg)return go("menu");
- if(cfg.mode==="ai"&&acc.coins<AI_ENTRY_COST){failBuy(AI_ENTRY_COST);go("shop");return}
- startGame({...cfg,aiLevel:cfg.mode==="ai"?BATTLE_AI_LEVEL:cfg.aiLevel});
+ if(cfg.mode==="ai"){if(acc.coins<AI_ENTRY_COST){failBuy(AI_ENTRY_COST);go("shop");return}startAIBattle();return}
+ startGame({...cfg});
 };
 $("btnResultShop").onclick=()=>{Sound.play("ui");cleanupGame();go("shop")};
 $("btnResultMenu").onclick=()=>{Sound.play("ui");cleanupGame();go("menu")};
@@ -1926,6 +2304,43 @@ document.addEventListener("visibilitychange",()=>{
 });
 document.addEventListener("touchmove",ev=>{if(!ev.target.closest(".content"))ev.preventDefault()},{passive:false});
 
+
+/* ============================================================
+   앱(오프라인) 지원
+   · 웹/PWA: 서비스 워커로 파일을 캐시해 인터넷 없이도 실행
+   · 안드로이드 앱(Capacitor): 파일이 앱 안에 들어 있어 항상 오프라인 동작,
+     하드웨어 뒤로가기 버튼 처리
+============================================================ */
+const Native=window.Capacitor&&typeof window.Capacitor.isNativePlatform==="function"&&window.Capacitor.isNativePlatform()?window.Capacitor:null;
+const AppPlugin=Native?.Plugins?.App||null;
+if(!Native&&"serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){
+ window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(err=>console.warn("service worker",err))});
+}
+const BACK_TARGET={shop:"menu",missions:"menu",practiceConfig:"menu",aiConfig:"menu"};
+function askQuitApp(){
+ queueModal({ico:"👋",title:T("exit_app_title"),body:T("exit_app_body"),okText:T("btn_quit"),cancelText:T("btn_cancel"),danger:true,
+  onOk:()=>{flushPlaytime();try{AppPlugin?.exitApp()}catch(e){}}});
+}
+function handleBack(){
+ if(modalBusy&&currentModal){
+  if(currentModal.cancelText)$("modalCancel").click();else $("modalOk").click();
+  return;
+ }
+ if(isActive("loading"))return;
+ if(isActive("game")){$("btnExitGame").click();return}
+ if(isActive("result")){$("btnResultMenu").click();return}
+ for(const k in BACK_TARGET)if(isActive(k)){Sound.play("back");go(BACK_TARGET[k]);return}
+ if(isActive("menu"))askQuitApp();
+}
+if(AppPlugin){
+ try{
+  AppPlugin.addListener("backButton",handleBack);
+  AppPlugin.addListener("appStateChange",st=>{
+   if(!st.isActive){flushPlaytime();Sound.stopMusic()}
+   else{ptAnchor=Date.now();if(Sound.music)Sound.startMusic(isActive("game")?"game":"menu");if(isActive("menu")){checkDailyVisit();renderMenu()}}
+  });
+ }catch(e){console.warn("App plugin",e)}
+}
 /* ============================================================
    부팅
 ============================================================ */
