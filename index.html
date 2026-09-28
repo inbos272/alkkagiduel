@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="알까기">
 <meta name="format-detection" content="telephone=no">
-<link rel="manifest" href="./manifest.json">
-<link rel="icon" type="image/png" sizes="192x192" href="./icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>알까기</title>
 <style>
@@ -132,6 +132,8 @@ h1.logo{font-size:34px;font-weight:900;letter-spacing:-1.5px;margin:0;line-heigh
 .lang-row{display:flex;gap:4px}
 .lang-row button{font-size:11.5px;color:var(--text-faint);padding:5px 9px;border-radius:20px;border:1px solid transparent;background:none}
 .lang-row button.active{color:var(--gold);font-weight:800;border-color:#64f3d055;background:#12343766}
+.link-btn{background:none;border:none;color:var(--text-faint);font-size:11px;text-decoration:underline;opacity:.7;padding:6px}
+.lock-note{white-space:pre-line}
 .acc-foot{text-align:center;font-size:10.5px;color:var(--text-faint);margin-top:16px;opacity:.8}
 
 /* ---------- config ---------- */
@@ -276,6 +278,24 @@ canvas#board{touch-action:none}
 .result-actions .row{display:flex;gap:8px}
 .result-actions .row .ghost-btn{flex:1}
 
+/* ---------- tutorial ---------- */
+.tut{position:absolute;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:22px;background:radial-gradient(circle at 50% 38%,rgba(100,243,208,.14),rgba(2,6,12,.9) 62%);backdrop-filter:blur(6px)}
+.tut.show{display:flex;animation:fadeIn .25s ease both}
+.tut-card{width:min(94%,360px);padding:22px 20px 18px;border-radius:26px;border:1px solid #64f3d066;background:linear-gradient(160deg,rgba(24,41,60,.99),rgba(9,17,27,.99));box-shadow:0 24px 80px #000a;text-align:center}
+.tut-card.slide{animation:fadeIn .3s ease both}
+.tut-art{height:150px;border-radius:18px;background:#0a1623;border:1px solid var(--line-soft);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tut-art svg{width:100%;height:100%}
+.tut-title{font-size:21px;font-weight:900;margin-top:16px;letter-spacing:-.4px}
+.tut-body{font-size:13.5px;color:var(--text-dim);line-height:1.6;margin-top:8px;white-space:pre-line;min-height:64px}
+.tut-dots{display:flex;justify-content:center;gap:6px;margin:14px 0 4px}
+.tut-dots i{width:7px;height:7px;border-radius:99px;background:#27405c;transition:.2s}
+.tut-dots i.on{width:22px;background:var(--gold)}
+.tut-actions{display:flex;gap:8px;margin-top:14px}
+.tut-actions button{flex:1;padding:13px;border-radius:13px;font-weight:900;font-size:14px;border:1px solid var(--line);background:var(--panel2);color:var(--text-dim)}
+.tut-actions button.ok{flex:1.6;border-color:#69f4d555;background:linear-gradient(180deg,#8affdf,#45d9c1);color:#041412}
+.coach{position:absolute;left:16px;right:16px;bottom:calc(104px + env(safe-area-inset-bottom));z-index:7;display:none;padding:12px 14px;border-radius:14px;background:rgba(10,30,34,.95);border:1px solid #64f3d088;color:#dffcf4;font-size:13px;font-weight:700;line-height:1.5;text-align:center;box-shadow:0 10px 30px #0008;pointer-events:none}
+.coach.show{display:block;animation:fadeIn .25s ease both}
+
 /* ---------- modal ---------- */
 .modal{position:absolute;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 42%,rgba(100,243,208,.10),rgba(2,6,12,.82) 60%);backdrop-filter:blur(6px)}
 .modal.show{display:flex;animation:fadeIn .2s ease both}
@@ -377,10 +397,12 @@ canvas#board{touch-action:none}
     <div class="tg-group">
       <button class="tg" id="tgMusic">♪ <span data-i18n="toggle_music">음악</span></button>
       <button class="tg" id="tgSfx">🔊 <span data-i18n="toggle_sfx">효과음</span></button>
+      <button class="tg" id="btnHelp">❓ <span data-i18n="help">도움말</span></button>
     </div>
     <div class="lang-row" id="langRow"><button data-lang="ko">한국어</button><button data-lang="en">EN</button><button data-lang="zh">中文</button></div>
   </div>
   <div class="acc-foot" id="accFoot"></div>
+  <div style="text-align:center;margin-top:8px"><button class="link-btn" id="btnReset" data-i18n="reset_data">기록 초기화</button></div>
 </div></section>
 
 <!-- ================= SHOP ================= -->
@@ -434,7 +456,7 @@ canvas#board{touch-action:none}
   <div class="content fade-in">
     <p class="intro" data-i18n="ai_intro"></p>
     <div class="field"><div class="field-label"><span data-i18n="field_ai_total">전체 인원 (2~8명, 나 + AI)</span></div><div class="stepper"><button data-step="aiPlayers" data-dir="-1">−</button><div class="val" id="val-aiPlayers">4</div><button data-step="aiPlayers" data-dir="1">+</button></div><div class="dots-preview" id="aiDots"></div></div>
-    <div class="field"><div class="field-label"><span data-i18n="field_stones">알 개수 (1인당)</span></div><div class="stepper"><button data-step="aiStones" data-dir="-1">−</button><div class="val" id="val-aiStones">2</div><button data-step="aiStones" data-dir="1">+</button></div></div>
+    <div class="field"><div class="field-label"><span data-i18n="field_stones">알 개수 (1인당)</span><span id="aiStoneRange"></span></div><div class="stepper"><button data-step="aiStones" data-dir="-1">−</button><div class="val" id="val-aiStones">2</div><button data-step="aiStones" data-dir="1">+</button></div></div>
     <div class="field"><div class="field-label"><span data-i18n="field_map">맵 선택</span></div><div class="chip-row" id="mapChips-ai"></div></div>
     <div class="field"><div class="field-label"><span data-i18n="field_ai_level">AI 난이도</span></div><div class="chip-row"><div class="chip locked" id="aiLockedChip">🔒</div></div><div class="lock-note" data-i18n="ai_locked_desc">대전 AI는 항상 '어려움'으로 고정돼요</div></div>
     <div class="field"><div class="field-label"><span data-i18n="field_boosters">아이템 사용</span><span id="boosterHint"></span></div><div class="booster-row" id="boosterRow"></div></div>
@@ -457,6 +479,7 @@ canvas#board{touch-action:none}
     <div class="hud-players" id="hudPlayers"></div>
   </div>
   <div class="turn-banner" id="turnBanner"></div>
+  <div class="coach" id="coach"></div>
   <div id="boardWrap"><canvas id="board" width="600" height="600"></canvas></div>
   <div class="hud-bottom">
     <div class="power-wrap" id="powerWrap">
@@ -493,6 +516,16 @@ canvas#board{touch-action:none}
 </div></section>
 
 <div class="toast-stack" id="toastStack"></div>
+
+<div class="tut" id="tutorial" role="dialog" aria-modal="true">
+  <div class="tut-card">
+    <div class="tut-art" id="tutArt"></div>
+    <div class="tut-title" id="tutTitle"></div>
+    <div class="tut-body" id="tutBody"></div>
+    <div class="tut-dots" id="tutDots"></div>
+    <div class="tut-actions"><button id="tutSkip"></button><button class="ok" id="tutNext"></button></div>
+  </div>
+</div>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true">
   <div class="modal-card">
@@ -533,9 +566,9 @@ const MAP_ORDER=["classic","ice","bumper","mini"];
 const AI_LEVELS={
  easy:{nameKey:"ai_easy",err:.55,pw:.72,noise:1.4},
  normal:{nameKey:"ai_normal",err:.26,pw:.86,noise:.55},
- hard:{nameKey:"ai_hard",err:.075,pw:1,noise:.04}
+ hard:{nameKey:"ai_hard",err:.08,pw:1,noise:.04,sim:{top:6,powers:[.85],offsets:[],refine:0,budget:30,defend:false}},
+ pro:{nameKey:"ai_pro",err:.01,pw:1,noise:0,sim:{top:40,powers:[.45,.6,.75,.9,1],offsets:[-.08,-.05,-.025,.025,.05,.08],refine:8,budget:220,defend:true}}
 };
-const BATTLE_AI_LEVEL="hard";          // 대전 AI는 항상 어려움
 const BASE_PX=600;
 const STONE_R_RATIO=.052, MAX_PULL=100, MAX_SPEED=17, POWER_CURVE=1.15;
 const SETTLE_EPS=.04, TURN_TIME_LIMIT=18, COLLISION_RESTITUTION=.9, BUMPER_RESTITUTION=.72;
@@ -960,6 +993,15 @@ zh:{
  a_visit30:"访问30天",a_missions30:"完成30个任务",a_practice10:"练习10场",a_earn5000:"累计获得5000金币",a_spend3000:"累计花费3000金币"
 }};
 for(const l in I18N_EXTRA)Object.assign(I18N[l],I18N_EXTRA[l]);
+/* ---- 난이도 · 초기화 번역 ---- */
+Object.assign(I18N.ko,{ai_pro:"프로",hero_ai_desc:"내 칭호에 맞는 AI와 최대 8인 난타전",ai_intro:"나 1명과 AI들이 맞붙어요. 칭호가 오를수록 AI도 강해져요.\n인원이 많을수록 어렵지만 보상도 커져요!",ai_locked:"🔒 {level} · {title} 전용",ai_locked_desc:"대전 AI 난이도는 칭호에 따라 정해져요\n루키 쉬움 · 도전자 보통 · 베테랑 어려움 · 마스터 이상 프로",ai_tier_up:"\n⚔️ 이제 대전 AI가 '{level}' 난이도로 올라가요!",stones_range:"{a}~{b}개",shop_note_upgrade:"강화는 AI 대전에서만 내 알에 적용돼요. (연습에는 적용 안 됨)\n강한 AI를 이기려면 강화가 큰 도움이 돼요!",reset_data:"기록 초기화",reset_t:"모든 기록을 초기화할까요?",reset_b:"코인, 레벨, 전적, 구매한 아이템, 미션·업적이 모두 사라지고\n처음 설치한 상태로 돌아가요. 되돌릴 수 없어요.",reset_t2:"정말 초기화할까요?",reset_b2:"마지막 확인이에요. 초기화하면 복구할 수 없어요.",reset_ok:"초기화"});
+Object.assign(I18N.en,{ai_pro:"Pro",hero_ai_desc:"Brawl with AI matched to your title — up to 8 players",ai_intro:"You vs. AI opponents. The AI gets stronger as your title rises.\nMore players is tougher — but the rewards are bigger!",ai_locked:"🔒 {level} · {title}",ai_locked_desc:"Battle AI difficulty follows your title\nRookie Easy · Challenger Normal · Veteran Hard · Master+ Pro",ai_tier_up:"\n⚔️ Battle AI is now '{level}'!",stones_range:"{a}–{b}",shop_note_upgrade:"Upgrades apply to your stones in AI Battle only (not Practice).\nThey help a lot against strong AI!",reset_data:"Reset data",reset_t:"Reset all progress?",reset_b:"Coins, level, stats, purchases, missions and achievements will be erased\nand the game returns to a fresh install. This can't be undone.",reset_t2:"Are you sure?",reset_b2:"Last check — this can't be recovered.",reset_ok:"Reset"});
+Object.assign(I18N.zh,{ai_pro:"职业",hero_ai_desc:"与匹配你称号的AI混战，最多8人",ai_intro:"你将与AI对战。称号越高，AI越强。\n人数越多越难，但奖励也越高！",ai_locked:"🔒 {level} · {title}",ai_locked_desc:"对战AI难度由称号决定\n新手 简单 · 挑战者 普通 · 老将 困难 · 大师以上 职业",ai_tier_up:"\n⚔️ 对战AI难度提升为「{level}」！",stones_range:"{a}~{b}颗",shop_note_upgrade:"强化仅在AI对战中对你的棋子生效（练习不生效）。\n想战胜强大的AI，强化会很有帮助！",reset_data:"重置记录",reset_t:"要重置所有记录吗？",reset_b:"金币、等级、战绩、购买的物品、任务和成就都将被清除，\n恢复到刚安装的状态。无法撤销。",reset_t2:"确定要重置吗？",reset_b2:"最后确认——重置后无法恢复。",reset_ok:"重置"});
+/* ---- 튜토리얼 · 랜덤 순서 번역 ---- */
+Object.assign(I18N.ko,{help:"도움말",tut_next:"다음",tut_skip:"건너뛰기",tut_later:"나중에",tut_start:"튜토리얼 대전 시작",tut_welcome_t:"알까기에 오신 걸 환영해요!",tut_welcome_b:"둥근 판 위에서 알을 튕겨\n상대 알을 판 밖으로 밀어내는 게임이에요.",tut_flick_t:"당겼다 놓으면 발사!",tut_flick_b:"내 알을 누른 채 뒤로 당겼다가 놓으면\n반대 방향으로 날아가요. 많이 당길수록 세게!",tut_out_t:"끝까지 살아남으세요",tut_out_b:"판 밖으로 나간 알은 탈락이에요.\n마지막까지 알이 남은 사람이 승리! 차례마다 제한 시간이 있어요.",tut_grow_t:"코인을 모아 성장하세요",tut_grow_b:"AI 대전에서 이기면 코인과 경험치를 받아요.\n상점에서 알을 강화하고, 매일 출석·미션 보상도 챙기세요.",tut_start_t:"직접 해볼까요?",tut_start_b:"쉬운 AI와 무료로 한 판 해봐요.\n끝까지 하면 🪙{n} 보너스!",coach_1:"👆 파란 내 알을 누른 채, 치고 싶은 방향의 반대쪽으로 당겼다 놓으세요!",coach_2:"잘했어요! 이제 상대 알을 판 밖으로 밀어내 보세요. 많이 당길수록 세게 날아가요.",coach_ai:"상대 차례예요. 가장자리에 있는 내 알은 밀려나기 쉬우니 조심!",coach_go:"좋아요! 혼자서도 할 수 있겠죠? 끝까지 살아남으세요!",mode_tutorial:"튜토리얼",tut_done_t:"튜토리얼 완료!",tut_done_win:"첫 승리 축하해요! 🎉\n이제 AI 대전에 도전해 보세요.",tut_done_lose:"잘했어요! 연습과 AI 대전으로\n실력을 키워 보세요.",my_order:"🎲 이번 판 내 순서: {n}번째"});
+Object.assign(I18N.en,{help:"Help",tut_next:"Next",tut_skip:"Skip",tut_later:"Later",tut_start:"Start tutorial match",tut_welcome_t:"Welcome to Alkkagi!",tut_welcome_b:"Flick your stones on a round board\nand knock your opponents off the edge.",tut_flick_t:"Pull back, then let go!",tut_flick_b:"Hold your stone, pull it back and release —\nit flies the opposite way. Pull further for more power!",tut_out_t:"Be the last one standing",tut_out_b:"Stones that leave the board are out.\nWhoever still has stones at the end wins! Each turn is timed.",tut_grow_t:"Earn coins and grow",tut_grow_b:"Win AI Battles to earn coins and XP.\nUpgrade stones in the shop and claim daily and mission rewards.",tut_start_t:"Ready to try?",tut_start_b:"Play one free match against an easy AI.\nFinish it for a 🪙{n} bonus!",coach_1:"👆 Hold your blue stone, pull it back away from where you want to shoot, then release!",coach_2:"Nice! Now knock the opponent's stone off the board. Pull further for more power.",coach_ai:"Opponent's turn. Your stones near the edge are easy to push out — careful!",coach_go:"Great! You've got it — survive to the end!",mode_tutorial:"Tutorial",tut_done_t:"Tutorial complete!",tut_done_win:"Congrats on your first win! 🎉\nNow take on the AI Battle.",tut_done_lose:"Well played! Build your skills\nin Practice and AI Battle.",my_order:"🎲 Your turn order this match: #{n}"});
+Object.assign(I18N.zh,{help:"帮助",tut_next:"下一步",tut_skip:"跳过",tut_later:"以后再说",tut_start:"开始教学对战",tut_welcome_t:"欢迎来到弹棋！",tut_welcome_b:"在圆形棋盘上弹动棋子，\n把对手的棋子推出场外。",tut_flick_t:"拉回后松开即可发射！",tut_flick_b:"按住你的棋子向后拉再松开，\n它会向反方向飞出。拉得越远越有力！",tut_out_t:"坚持到最后",tut_out_b:"离开棋盘的棋子即出局。\n最后还有棋子的人获胜！每回合都有时间限制。",tut_grow_t:"收集金币不断成长",tut_grow_b:"赢得AI对战可获得金币和经验。\n在商店强化棋子，别忘了每日签到和任务奖励。",tut_start_t:"来试一试吧？",tut_start_b:"与简单AI免费对战一局。\n完成即可获得🪙{n}奖励！",coach_1:"👆 按住你的蓝色棋子，向想打的方向的反方向拉，然后松开！",coach_2:"很好！现在把对手的棋子推出场外。拉得越远越有力。",coach_ai:"对手的回合。靠边的棋子容易被推出去，小心！",coach_go:"很好！你已经掌握了——坚持到最后吧！",mode_tutorial:"教学",tut_done_t:"教学完成！",tut_done_win:"恭喜首胜！🎉\n现在去挑战AI对战吧。",tut_done_lose:"打得不错！在练习和AI对战中\n继续提升实力吧。",my_order:"🎲 本局你的顺序：第{n}位"});
+
 
 
 /* ============================================================
@@ -1083,7 +1125,7 @@ function defaultAcc(){return{
  knockouts:0,bestCombo:0,win8:0,practiceGames:0,visitDays:0,lastVisit:"",
  perfects:0,clutch:0,boxes:0,missionsDone:0,totalEarned:0,totalSpent:0,mapWins:{},
  upgrades:{},skins:["basic"],skin:"basic",trails:["none"],trail:"none",effects:["basic"],effect:"basic",avatars:["auto"],avatar:"auto",
- items:{},daily:null,ach:{},achSeen:{}
+ items:{},daily:null,ach:{},achSeen:{},tutorialDone:false,tutorialRewarded:false
 }}
 function loadAcc(){
  const d=defaultAcc();let a=null;
@@ -1093,6 +1135,8 @@ function loadAcc(){
  m.accountId=deviceId;               // 이 기기에 묶인 단 하나의 계정
  ["coins","xp","level","wins","games","curStreak","bestStreak","playSeconds","knockouts","bestCombo","win8","practiceGames","visitDays","perfects","clutch","boxes","missionsDone","totalEarned","totalSpent"].forEach(k=>{m[k]=Math.max(0,Number(m[k])||0)});
  m.level=Math.max(1,m.level);
+ m.tutorialDone=!!a.tutorialDone||m.games+m.practiceGames>0;   // 기존 플레이어는 튜토리얼 생략
+ m.tutorialRewarded=!!a.tutorialRewarded;
  m.upgrades=(a.upgrades&&typeof a.upgrades==="object")?a.upgrades:{};
  for(const k in COSMETIC_SETS){
   const set=COSMETIC_SETS[k],free=set.list[0].id;
@@ -1178,6 +1222,7 @@ function claimableAchs(){return ACHS.filter(a=>!acc.ach[a.id]&&achReached(a)).le
 
 /* 출석 보상 (하루 1번) */
 function checkDailyVisit(){
+ if(tutorialOpen)return;                     // 튜토리얼이 끝난 뒤 지급
  const t=todayStr();
  if(acc.lastVisit===t)return;
  if(acc.lastVisit&&t<acc.lastVisit)return;   // 시계를 되돌린 경우 지급하지 않음
@@ -1292,7 +1337,7 @@ function renderMenu(){
  q.push(`<span class="qchip">${T("q_visit",{n:acc.visitDays})}</span>`);
  $("quickStrip").innerHTML=q.join("");
  const n=stepConfig.aiPlayers.val;
- $("heroMeta").innerHTML=`<i>${T("hero_meta_players",{n})}</i><i>${T(MAPS[aiState.map].nameKey)}</i><i>🔒 ${T("ai_hard")}</i><i>${T("hero_meta_reward",{n:winBaseReward(n)})}</i>`;
+ $("heroMeta").innerHTML=`<i>${T("hero_meta_players",{n})}</i><i>${T(MAPS[aiState.map].nameKey)}</i><i>🤖 ${T(AI_LEVELS[battleLevel()].nameKey)}</i><i>${T("hero_meta_reward",{n:winBaseReward(n)})}</i>`;
  const sb=$("shopBadge");sb.style.display=canAffordAnything()?"flex":"none";
  const mc=claimableMissions(),ac=claimableAchs();
  $("missionBadge").style.display=mc?"flex":"none";$("missionBadge").textContent=mc;
@@ -1317,6 +1362,14 @@ $("profileName").onclick=()=>{
 $("btnHeroAI").onclick=()=>{Sound.play("ui");go("aiConfig")};
 $("btnGoShop").onclick=()=>{Sound.play("ui");go("shop")};
 $("btnGoMissions").onclick=()=>{Sound.play("ui");missionTab="daily";go("missions")};
+$("btnReset").onclick=()=>{
+ Sound.play("ui");
+ queueModal({ico:"⚠️",title:T("reset_t"),body:T("reset_b"),okText:T("reset_ok"),cancelText:T("btn_cancel"),danger:true,onOk:()=>{
+  queueModal({ico:"🗑️",title:T("reset_t2"),body:T("reset_b2"),okText:T("reset_ok"),cancelText:T("btn_cancel"),danger:true,onOk:()=>{
+   lsSet("alkkagi_nickname","");acc=defaultAcc();save();location.reload();
+  }});
+ }});
+};
 $("btnGoAch").onclick=()=>{Sound.play("ui");missionTab="ach";go("missions")};
 
 /* 언어 / 사운드 */
@@ -1352,6 +1405,11 @@ $("btnToggleHud").onclick=()=>{Sound.play("ui");setHudPlayersHidden(!hudPlayersH
 ============================================================ */
 const stepConfig={players:{min:2,max:8,val:4},stones:{min:1,max:4,val:2},aiPlayers:{min:2,max:8,val:Number(lsGet("alkkagi_ai_players"))||4},aiStones:{min:1,max:3,val:Number(lsGet("alkkagi_ai_stones"))||2}};
 ["aiPlayers","aiStones"].forEach(k=>{const c=stepConfig[k];c.val=Math.max(c.min,Math.min(c.max,c.val))});
+function syncAiStoneRange(){           // 2~4인 대전: 알 2~4개 · 5인 이상: 1~3개
+ const c=stepConfig.aiStones,few=stepConfig.aiPlayers.val<=4;
+ c.min=few?2:1;c.max=few?4:3;c.val=Math.max(c.min,Math.min(c.max,c.val));
+}
+syncAiStoneRange();
 function renderStep(k){$("val-"+k).textContent=stepConfig[k].val}
 document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
  const k=b.dataset.step,c=stepConfig[k],prev=c.val;
@@ -1359,6 +1417,7 @@ document.querySelectorAll("[data-step]").forEach(b=>b.onclick=()=>{
  if(c.val!==prev)Sound.play("ui");
  renderStep(k);
  if(k==="players")renderPracticePlayerList();
+ if(k==="aiPlayers"){syncAiStoneRange();renderStep("aiStones")}
  if(k==="aiPlayers"||k==="aiStones"){lsSet("alkkagi_ai_players",stepConfig.aiPlayers.val);lsSet("alkkagi_ai_stones",stepConfig.aiStones.val);renderAiConfig()}
 });
 Object.keys(stepConfig).forEach(renderStep);
@@ -1413,7 +1472,9 @@ function renderBoosters(){
 function renderAiConfig(){
  const n=stepConfig.aiPlayers.val;
  $("aiDots").innerHTML=Array.from({length:n},(_,i)=>`<i style="background:${PLAYER_COLORS[i]};color:${PLAYER_COLORS[i]}"></i>`).join("");
- $("aiLockedChip").textContent=T("ai_locked");
+ const bl=battleLevel();
+ $("aiLockedChip").textContent=T("ai_locked",{level:T(AI_LEVELS[bl].nameKey),title:T(titleOf(acc.level)[1])});
+ $("aiStoneRange").textContent=T("stones_range",{a:stepConfig.aiStones.min,b:stepConfig.aiStones.max});
  $("aiRewardPreview").innerHTML=`<span class="c">${T("rp_win",{n:winBaseReward(n)})}</span><span class="x">${T("rp_xp",{n:winXP(n)})}</span><span>${T("rp_entry",{n:AI_ENTRY_COST})}</span>`;
  $("btnStartAI").textContent=T("btn_start_cost",{n:AI_ENTRY_COST});
  renderBoosters();
@@ -1693,15 +1754,38 @@ function pathBlocked(e,from,dirX,dirY,dist,ignore){
  }
  return false;
 }
-function aiChooseShot(e,p,levelKey){
- const lv=AI_LEVELS[levelKey]||AI_LEVELS.hard;
+/* ---- 시뮬레이션용 엔진 복제 (어려움 · 프로) ---- */
+function cloneEngine(e){
+ const c=Object.create(Engine.prototype);
+ Object.assign(c,{mapDef:e.mapDef,playerCount:e.playerCount,stoneCount:e.stoneCount,boardPx:e.boardPx,scale:e.scale,boardR:e.boardR,
+  cx:e.cx,cy:e.cy,stoneR:e.stoneR,bumpers:e.bumpers,turn:e.turn,moving:false,winner:null,draw:false,onHit:null,onOut:null,onShoot:null,onBumper:null});
+ c.stones=e.stones.map(s=>({...s}));
+ return c;
+}
+/* 한 번 쳐 보고 결과 점수 매기기: 트리플 > 더블 > 싱글, 내 알 손실은 큰 감점 */
+function simulateShot(e,p,stoneId,dx,dy){
+ const c=cloneEngine(e);
+ const ownBefore=c.aliveCountFor(p),enemyBefore=c.stones.filter(s=>s.alive&&s.owner!==p).length;
+ if(!c.shoot(stoneId,dx,dy))return -Infinity;
+ for(let i=0;i<900&&c.moving;i++)c.step();
+ const R=c.boardR;let own=0,enemy=0,pos=0;
+ for(const s of c.stones){
+  if(!s.alive)continue;
+  const r=Math.hypot(s.x-c.cx,s.y-c.cy)/R;
+  if(s.owner===p){own++;if(r>.72)pos-=(r-.72)*90}      // 가장자리에 남은 내 알 = 다음 차례에 위험
+  else{enemy++;if(r>.7)pos+=(r-.7)*14}                   // 가장자리로 밀린 상대 알 = 다음 기회
+ }
+ const ko=enemyBefore-enemy,lost=ownBefore-own;
+ let score=ko*100+Math.max(0,ko-1)*70-lost*150+pos;
+ if(own===0)score-=1000;else if(enemy===0)score+=600;
+ return score;
+}
+function aiHeuristicCands(e,p,lv){
  const mine=e.stones.filter(s=>s.owner===p&&s.alive),enemies=e.stones.filter(s=>s.owner!==p&&s.alive);
- if(!mine.length||!enemies.length)return null;
- const R=e.boardR;let best=null;
+ const R=e.boardR,out=[];
  for(const my of mine)for(const en of enemies){
   const ox=en.x-e.cx,oy=en.y-e.cy,od=Math.hypot(ox,oy)||1,ux=ox/od,uy=oy/od;
-  const edge=Math.max(0,R-od),edgeF=1.25-edge/R;
-  const cands=[];
+  const edge=Math.max(0,R-od),edgeF=1.25-edge/R,cands=[];
   { // 정면으로 맞히기
    const dx=en.x-my.x,dy=en.y-my.y,d=Math.hypot(dx,dy)||1,ax=dx/d,ay=dy/d;
    cands.push({ax,ay,dist:d,q:Math.max(0,ax*ux+ay*uy)*.85+.18});
@@ -1712,18 +1796,49 @@ function aiChooseShot(e,p,levelKey){
   }
   for(const c of cands){
    const blocked=pathBlocked(e,my,c.ax,c.ay,c.dist,[my,en]);
-   // 내 알이 판 가장자리에서 바깥으로 튕겨 나갈 위험
    const myOut=Math.hypot(my.x-e.cx,my.y-e.cy)/R,risk=myOut>.7?Math.max(0,c.ax*(my.x-e.cx)/R+c.ay*(my.y-e.cy)/R)*.25:0;
    const sc=c.q*edgeF*1.6-c.dist/R*.35-(blocked?1.3:0)-risk+Math.random()*lv.noise;
-   if(!best||sc>best.sc)best={sc,my,en,ax:c.ax,ay:c.ay,dist:c.dist,edge};
+   out.push({sc,my,en,ax:c.ax,ay:c.ay,dist:c.dist,edge,need:.62+.22*(c.dist/R)+.35*(edge/R)});
   }
  }
- const ang=Math.atan2(best.ay,best.ax)+(Math.random()-.5)*lv.err;
- const need=.62+.22*(best.dist/R)+.35*(best.edge/R);
- const power=Math.max(.45,Math.min(1,need*(.92+Math.random()*.12)))*lv.pw;
- const pull=MAX_PULL*e.scale*power;
- return {stoneId:best.my.id,dx:Math.cos(ang)*pull,dy:Math.sin(ang)*pull};
+ return out.sort((a,b)=>b.sc-a.sc);
 }
+function aiChooseShot(e,p,levelKey){
+ const lv=AI_LEVELS[levelKey]||AI_LEVELS.hard;
+ const cands=aiHeuristicCands(e,p,lv);if(!cands.length)return null;
+ const maxPull=MAX_PULL*e.scale;
+ const shotOf=(my,ang,power)=>({stoneId:my.id,dx:Math.cos(ang)*maxPull*power,dy:Math.sin(ang)*maxPull*power});
+ if(!lv.sim){                                     // 쉬움 · 보통: 감으로 치기
+  const best=cands[0],ang=Math.atan2(best.ay,best.ax)+(Math.random()-.5)*lv.err;
+  const power=Math.max(.45,Math.min(1,best.need*(.92+Math.random()*.12)))*lv.pw;
+  return shotOf(best.my,ang,power);
+ }
+ // 어려움 · 프로: 후보 샷을 실제 물리로 미리 쳐 보고 가장 좋은 결과를 선택
+ const cfg=lv.sim,t0=performance.now(),tried=[];
+ const test=(my,ang,power)=>{const s=shotOf(my,ang,power),sc=simulateShot(e,p,s.stoneId,s.dx,s.dy);tried.push({my,ang,power,sc});return sc};
+ for(const c of cands.slice(0,cfg.top)){
+  const ang=Math.atan2(c.ay,c.ax);
+  for(const pw of cfg.powers){if(performance.now()-t0>cfg.budget)break;test(c.my,ang,pw)}
+ }
+ // 가장자리에 몰린 내 알은 안쪽으로 살짝 빼는 수비 샷도 검토
+ if(cfg.defend){
+  for(const my of e.stones.filter(s=>s.owner===p&&s.alive)){
+   const r=Math.hypot(my.x-e.cx,my.y-e.cy);if(r/e.boardR<.62)continue;
+   const ang=Math.atan2(e.cy-my.y,e.cx-my.x);for(const pw of [.3,.45])test(my,ang,pw);
+  }
+ }
+ // 상위 후보는 각도를 미세 조정해서 한 번 더
+ tried.sort((a,b)=>b.sc-a.sc);
+ for(const t of tried.slice(0,cfg.refine)){
+  for(const off of cfg.offsets){if(performance.now()-t0>cfg.budget*1.6)break;test(t.my,t.ang+off,t.power)}
+ }
+ tried.sort((a,b)=>b.sc-a.sc);
+ const best=tried[0];
+ return shotOf(best.my,best.ang+(Math.random()-.5)*lv.err,best.power*lv.pw);
+}
+/* 대전 AI 난이도 = 내 칭호 (루키 쉬움 · 도전자 보통 · 베테랑 어려움 · 마스터 이상 프로) */
+function battleLevelFor(level){return level>=20?"pro":level>=10?"hard":level>=5?"normal":"easy"}
+function battleLevel(){return battleLevelFor(acc.level)}
 
 /* ============================================================
    캔버스 / 렌더링
@@ -1915,10 +2030,11 @@ function drawBoard(e,now){
   if(!s.alive)continue;
   const sprite=getStoneSprite(s,e,now),pad=sprite.width/2,scale=s.r/Math.max(6,Math.round(s.r));
   ctx.drawImage(sprite,s.x-pad*scale,s.y-pad*scale,sprite.width*scale,sprite.height*scale);
-  if(s.owner===e.skinSlot&&game.mode==="ai"){ctx.beginPath();ctx.arc(s.x,s.y,s.r+1.2,0,Math.PI*2);ctx.strokeStyle="#ffffffaa";ctx.lineWidth=1.6;ctx.stroke()}
+  if(s.owner===0&&game.mode!=="practice"){ctx.beginPath();ctx.arc(s.x,s.y,s.r+1.2,0,Math.PI*2);ctx.strokeStyle="#ffffffaa";ctx.lineWidth=1.6;ctx.stroke()}
   const active=e.turn===s.owner&&!e.moving&&game.active;
   if(active){ctx.beginPath();ctx.arc(s.x,s.y,s.r+3.5+pulse*2.5,0,Math.PI*2);ctx.strokeStyle=hexA("#ffffff",.35+pulse*.45);ctx.lineWidth=2;ctx.stroke()}
  }
+ drawCoachHand(e,now);
  ctx.textAlign="center";ctx.textBaseline="middle";
  for(const p of fx.particles)drawParticle(p);
  ctx.globalAlpha=1;
@@ -2002,6 +2118,12 @@ function startGame(cfg){
  const ai=cfg.mode==="ai";
  const e=new Engine({map:cfg.map,playerCount:cfg.players,stoneCount:cfg.stones,boardPx,buffSlot:ai?0:-1,buffs:ai?myBuffs():null});
  e.skinSlot=ai?0:-1;                     // 스킨·궤적·효과는 AI 대전에서만
+ game.coachStep=0;setCoach(null);
+ if(ai){                                 // AI 대전: 첫 차례를 랜덤으로 → 내 순서도 랜덤
+  e.turn=Math.floor(Math.random()*cfg.players);
+  const order=((0-e.turn)%cfg.players+cfg.players)%cfg.players+1;
+  setTimeout(()=>{if(game.engine===e)showToast(T("my_order",{n:order}),"gold")},250);
+ }
  game.engine=e;game.aiFlags=cfg.aiFlags.slice();game.aiLevel=cfg.aiLevel;
  let aiNo=0;
  game.names=Array.from({length:cfg.players},(_,i)=>{
@@ -2010,7 +2132,7 @@ function startGame(cfg){
   return T("ai_n",{n:++aiNo});
  });
  bindEngine(e);
- $("modePill").innerHTML=cfg.mode==="ai"?`${T("mode_ai")} · ${T(MAPS[cfg.map].nameKey)}${Object.keys(cfg.boost).map(id=>" "+ITEMS.find(i=>i.id===id).ico).join("")}`:`${T("mode_practice")} · ${T(MAPS[cfg.map].nameKey)}`;
+ $("modePill").innerHTML=cfg.mode==="ai"?`${T("mode_ai")} · ${T(MAPS[cfg.map].nameKey)}${Object.keys(cfg.boost).map(id=>" "+ITEMS.find(i=>i.id===id).ico).join("")}`:`${T(cfg.mode==="tutorial"?"mode_tutorial":"mode_practice")} · ${T(MAPS[cfg.map].nameKey)}`;
  setHudPlayersHidden(false);renderSpeedBtn();renderSoundToggles();
  clearAimState();buildHudPlayers();
  const g=game.gen;game.lastT=performance.now();
@@ -2027,7 +2149,7 @@ function clearAimState(){
 function buildHudPlayers(){
  const h=$("hudPlayers");h.innerHTML="";h.classList.toggle("many",game.names.length>4);
  game.names.forEach((name,i)=>{
-  const isAI=!!game.aiFlags[i],me=game.mode==="ai"&&i===0;
+  const isAI=!!game.aiFlags[i],me=game.mode!=="practice"&&i===0;
   const c=document.createElement("div");c.className="hud-chip"+(me?" me":"");c.id="hudChip"+i;
   c.innerHTML=`<div class="dot" style="background:${PLAYER_COLORS[i%8]};color:${PLAYER_COLORS[i%8]}"></div><div><div class="nm">${me?"⭐ ":""}${escapeHtml(name)}${game.mode==="practice"&&isAI?" · AI":""}</div><div class="cnt" id="hudCnt${i}"></div></div>`;
   h.appendChild(c);
@@ -2047,10 +2169,10 @@ function renderHUD(){
 function isHumanTurn(){const e=game.engine;return !!e&&game.active&&!e.moving&&e.winner==null&&!e.draw&&!game.aiFlags[e.turn]}
 function showTurnBanner(){
  const e=game.engine,b=$("turnBanner"),t=e.turn;
- const mine=game.mode==="ai"?t===0:!game.aiFlags[t];
- b.textContent=game.mode==="ai"?(t===0?T("turn_mine"):T("turn_ai",{name:game.names[t]})):T("turn_other",{name:game.names[t]});
- b.style.borderColor=PLAYER_COLORS[t%8];b.style.color=mine&&game.mode==="ai"?"":PLAYER_COLORS[t%8];
- b.classList.toggle("mine",mine&&game.mode==="ai");
+ const solo=game.mode!=="practice",mine=solo?t===0:!game.aiFlags[t];
+ b.textContent=solo?(t===0?T("turn_mine"):T("turn_ai",{name:game.names[t]})):T("turn_other",{name:game.names[t]});
+ b.style.borderColor=PLAYER_COLORS[t%8];b.style.color=mine&&solo?"":PLAYER_COLORS[t%8];
+ b.classList.toggle("mine",mine&&solo);
  b.classList.add("show");clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove("show"),mine?850:650);
 }
 function afterTurnChange(){
@@ -2059,11 +2181,16 @@ function afterTurnChange(){
  if(game.lastTurnShown!==e.turn||game.names.length===2){showTurnBanner();game.lastTurnShown=e.turn}
  if(game.aiFlags[e.turn]){
   $("gameHint").textContent=game.mode==="practice"&&game.aiFlags.every(Boolean)?T("hint_spectate"):T("hint_ai_turn");$("powerWrap").classList.add("off");$("timerRing").style.strokeDashoffset=0;
+  if(game.mode==="tutorial")setCoach("coach_ai");
   scheduleAI();
  }else{
   $("gameHint").textContent=game.mode==="practice"?T("hint_practice",{name:game.names[e.turn]}):T("hint_default");
   $("powerWrap").classList.remove("off");
   if(game.mode==="ai"||game.aiFlags.some(Boolean))Sound.play("turn");
+  if(game.mode==="tutorial"){               // 튜토리얼: 제한 시간 없이 코치 안내
+   setCoach(game.coachStep===0?"coach_1":game.coachStep===1?"coach_2":"coach_go");
+   $("timerRing").style.strokeDashoffset=0;return;
+  }
   startTurnTimer();
  }
 }
@@ -2096,7 +2223,9 @@ function scheduleAI(){
 function fire(id,dx,dy){
  const e=game.engine;if(!e||e.moving||!game.active)return false;
  const shooter=e.turn;
- if(e.shoot(id,dx,dy)){clearInterval(game.turnTimer);game.shooter=shooter;game.shotKOs=0;renderHUD();return true}
+ if(e.shoot(id,dx,dy)){clearInterval(game.turnTimer);game.shooter=shooter;game.shotKOs=0;
+  if(game.mode==="tutorial"&&shooter===0){game.coachStep++;setCoach(null)}
+  renderHUD();return true}
  return false;
 }
 function onSettle(){
@@ -2112,7 +2241,7 @@ function onSettle(){
   }
  }
  if(e.winner!=null||e.draw){renderHUD();finishSoon(ko>=2?1100:750);return}
- if(game.mode==="ai"&&e.aliveCountFor(0)===0){$("gameHint").textContent=T("hint_defeated");renderHUD();finishSoon(1000);return}
+ if(game.mode!=="practice"&&e.aliveCountFor(0)===0){$("gameHint").textContent=T("hint_defeated");renderHUD();finishSoon(1000);return}
  afterTurnChange();
 }
 function finishSoon(ms){
@@ -2161,6 +2290,7 @@ let lastResult=null;
 function endGame(){
  const e=game.engine,cfg=game.cfg;if(!e||!cfg)return;
  game.active=false;clearGameTimers();
+ if(cfg.mode==="tutorial"){finishTutorial(!e.draw&&e.winner===0);return}
  const res={mode:cfg.mode,players:cfg.players,map:cfg.map,draw:!!e.draw,winner:e.winner,rows:[],coins:0,xp:0,ups:[],streakBefore:acc.curStreak,shielded:false};
  if(cfg.mode==="practice"){
   acc.practiceGames++;save();
@@ -2238,7 +2368,7 @@ function showResult(res){
   fill.style.transition="";setTimeout(()=>{fill.style.width=Math.max(3,acc.xp/need*100)+"%"},250);
   $("resultXpText").textContent=T("xp_of",{a:acc.xp,b:need});
   $("btnResultAgain").textContent=T("btn_again_cost",{n:AI_ENTRY_COST});
-  res.ups.forEach(u=>queueModal({ico:"⭐",title:T("levelup_title"),body:T("levelup_body",{n:u.level,title:T(titleOf(u.level)[1])}),reward:"🪙 +"+u.reward,sound:"levelup",onOk:()=>{coinDelta(u.reward)}}));
+  res.ups.forEach(u=>queueModal({ico:"⭐",title:T("levelup_title"),body:T("levelup_body",{n:u.level,title:T(titleOf(u.level)[1])})+(battleLevelFor(u.level)!==battleLevelFor(u.level-1)?T("ai_tier_up",{level:T(AI_LEVELS[battleLevelFor(u.level)].nameKey)}):""),reward:"🪙 +"+u.reward,sound:"levelup",onOk:()=>{coinDelta(u.reward)}}));
  }
  renderResultMissions();
  refreshCoins();
@@ -2262,7 +2392,7 @@ function recordAbandon(){
 function cleanupGame(){
  game.active=false;game.gen++;clearGameTimers();clearAimState();
  trailHistory.clear();fx.particles.length=0;fx.floaters.length=0;fx.rings.length=0;
- game.engine=null;game.aiAim=null;ctx.clearRect(0,0,boardPx,boardPx);
+ game.engine=null;game.aiAim=null;ctx.clearRect(0,0,boardPx,boardPx);setCoach(null);
  $("turnBanner").classList.remove("show");
 }
 function startPractice(){
@@ -2272,7 +2402,7 @@ function startPractice(){
 function startAIBattle(){
  const n=stepConfig.aiPlayers.val;
  const boost={};BOOSTERS.forEach(it=>{if(aiState.use[it.id]&&itemCount(it.id)>0)boost[it.id]=true});
- startGame({mode:"ai",players:n,stones:stepConfig.aiStones.val,map:aiState.map,aiFlags:Array.from({length:n},(_,i)=>i>0),aiLevel:BATTLE_AI_LEVEL,boost});
+ startGame({mode:"ai",players:n,stones:stepConfig.aiStones.val,map:aiState.map,aiFlags:Array.from({length:n},(_,i)=>i>0),aiLevel:battleLevel(),boost});
 }
 $("btnStartPractice").onclick=()=>{Sound.unlock();Sound.play("ui");startPractice()};
 $("btnStartAI").onclick=()=>{Sound.unlock();Sound.play("ui");startAIBattle()};
@@ -2289,7 +2419,7 @@ $("btnExitGame").onclick=()=>{
  Sound.play("ui");
  const ai=game.cfg?.mode==="ai"&&game.active;
  queueModal({ico:"🚪",title:T("exit_title"),body:ai?T("exit_body_ai"):T("exit_body_practice"),okText:T("btn_leave"),cancelText:T("btn_cancel"),danger:true,
-  onOk:()=>{if(!isActive("game"))return;recordAbandon();cleanupGame();Sound.play("back");go("menu")}});
+  onOk:()=>{if(!isActive("game"))return;if(game.cfg?.mode==="tutorial"&&!acc.tutorialDone){acc.tutorialDone=true;save()}recordAbandon();cleanupGame();Sound.play("back");go("menu")}});
 };
 window.addEventListener("beforeunload",()=>{recordAbandon();flushPlaytime()});
 window.addEventListener("pagehide",()=>{flushPlaytime()});
@@ -2326,6 +2456,7 @@ function handleBack(){
   if(currentModal.cancelText)$("modalCancel").click();else $("modalOk").click();
   return;
  }
+ if(tutorialOpen){$("tutSkip").click();return}
  if(isActive("loading"))return;
  if(isActive("game")){$("btnExitGame").click();return}
  if(isActive("result")){$("btnResultMenu").click();return}
@@ -2341,6 +2472,68 @@ if(AppPlugin){
   });
  }catch(e){console.warn("App plugin",e)}
 }
+
+/* ============================================================
+   튜토리얼 — 처음 방문하면 자동으로 표시 (메뉴 › 도움말로 다시 보기)
+============================================================ */
+var tutorialOpen=false;
+const TUTORIAL_REWARD=20;
+const TUT_ART={
+ welcome:`<svg viewBox="0 0 200 140"><defs><radialGradient id="tb" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#1c4d6c"/><stop offset="1" stop-color="#081a26"/></radialGradient></defs><circle cx="100" cy="70" r="60" fill="url(#tb)" stroke="#64f3d0" stroke-width="2.5"/><circle cx="100" cy="70" r="36" fill="none" stroke="#64f3d022"/><circle cx="78" cy="82" r="11" fill="#4fb2ff"/><circle cx="118" cy="56" r="11" fill="#ff5c7a"/><circle cx="126" cy="92" r="11" fill="#ffd166"/><circle cx="80" cy="50" r="11" fill="#7ee08a"/><circle cx="74" cy="78" r="3.5" fill="#fff" opacity=".7"/></svg>`,
+ flick:`<svg viewBox="0 0 200 140"><rect x="10" y="20" width="180" height="100" rx="18" fill="#0f2233"/><circle cx="150" cy="70" r="12" fill="#ff5c7a"/><g><circle cx="90" cy="70" r="13" fill="#4fb2ff"><animate attributeName="cx" values="90;90;90;138;138" keyTimes="0;.2;.6;.75;1" dur="2.6s" repeatCount="indefinite"/></circle><line x1="90" y1="70" x2="90" y2="70" stroke="#fff" stroke-width="2" stroke-dasharray="3 4" opacity=".7"><animate attributeName="x2" values="90;90;46;90;90" keyTimes="0;.2;.55;.6;1" dur="2.6s" repeatCount="indefinite"/></line><text x="90" y="98" font-size="24" text-anchor="middle">👆<animate attributeName="x" values="90;90;46;46;46" keyTimes="0;.2;.55;.6;1" dur="2.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;.2;.55;.62;1" dur="2.6s" repeatCount="indefinite"/></text></g><path d="M112 40 L136 40" stroke="#ffd166" stroke-width="3" stroke-linecap="round" marker-end="url(#ah)" opacity="0"><animate attributeName="opacity" values="0;0;1;0" keyTimes="0;.55;.6;.8" dur="2.6s" repeatCount="indefinite"/></path><defs><marker id="ah" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6z" fill="#ffd166"/></marker></defs></svg>`,
+ out:`<svg viewBox="0 0 200 140"><circle cx="80" cy="70" r="58" fill="#0f2a3d" stroke="#64f3d0" stroke-width="2.5"/><circle cx="96" cy="70" r="11" fill="#4fb2ff"/><circle cx="118" cy="70" r="11" fill="#ff5c7a"><animate attributeName="cx" values="118;118;178;178" keyTimes="0;.35;.7;1" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;1;0" keyTimes="0;.35;.75;1" dur="2.4s" repeatCount="indefinite"/></circle><text x="170" y="48" font-size="16" font-weight="900" fill="#ff8da1" text-anchor="middle" opacity="0">OUT!<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.62;.7;1" dur="2.4s" repeatCount="indefinite"/></text></svg>`,
+ grow:`<svg viewBox="0 0 200 140"><text x="100" y="62" font-size="40" text-anchor="middle">🏆 🪙 🛒</text><text x="100" y="112" font-size="34" text-anchor="middle">📋 🎁 ⭐</text></svg>`,
+ start:`<svg viewBox="0 0 200 140"><circle cx="100" cy="70" r="56" fill="#0f2a3d" stroke="#64f3d0" stroke-width="2.5"/><circle cx="76" cy="84" r="12" fill="#4fb2ff"/><circle cx="92" cy="96" r="12" fill="#4fb2ff"/><circle cx="118" cy="52" r="12" fill="#ff5c7a"/><circle cx="128" cy="76" r="12" fill="#ff5c7a"/><text x="100" y="34" font-size="20" text-anchor="middle">⚔️</text></svg>`
+};
+const TUT_SLIDES=["welcome","flick","out","grow","start"];
+let tutIdx=0;
+function renderTutorial(){
+ const k=TUT_SLIDES[tutIdx],last=tutIdx===TUT_SLIDES.length-1;
+ $("tutArt").innerHTML=TUT_ART[k];
+ $("tutTitle").textContent=T("tut_"+k+"_t");
+ $("tutBody").textContent=T("tut_"+k+"_b",{n:TUTORIAL_REWARD});
+ $("tutDots").innerHTML=TUT_SLIDES.map((_,i)=>`<i class="${i===tutIdx?"on":""}"></i>`).join("");
+ $("tutSkip").textContent=last?T("tut_later"):T("tut_skip");
+ $("tutNext").textContent=last?T("tut_start"):T("tut_next");
+ const c=$("tutorial").querySelector(".tut-card");c.classList.remove("slide");void c.offsetWidth;c.classList.add("slide");
+}
+function openTutorial(){tutorialOpen=true;tutIdx=0;renderTutorial();$("tutorial").classList.add("show")}
+function closeTutorial(startMatch){
+ tutorialOpen=false;$("tutorial").classList.remove("show");
+ if(startMatch){startTutorialMatch();return}
+ if(!acc.tutorialDone){acc.tutorialDone=true;save()}
+ if(isActive("menu")){checkDailyVisit();renderMenu()}
+}
+$("tutNext").onclick=()=>{Sound.unlock();Sound.play("ui");if(tutIdx<TUT_SLIDES.length-1){tutIdx++;renderTutorial()}else closeTutorial(true)};
+$("tutSkip").onclick=()=>{Sound.play("back");closeTutorial(false)};
+$("btnHelp").onclick=()=>{Sound.play("ui");openTutorial()};
+function startTutorialMatch(){
+ startGame({mode:"tutorial",players:2,stones:2,map:"classic",aiFlags:[false,true],aiLevel:"easy"});
+}
+function setCoach(key){const c=$("coach");if(!key){c.classList.remove("show");return}c.textContent=T(key);c.classList.add("show")}
+/* 튜토리얼 중 내 차례: 손가락이 알을 당기는 시범 동작을 판 위에 그림 */
+function drawCoachHand(e,now){
+ if(game.mode!=="tutorial"||game.coachStep>=2||game.dragging||!isHumanTurn())return;
+ const mine=e.stones.filter(s=>s.owner===0&&s.alive),foes=e.stones.filter(s=>s.owner!==0&&s.alive);if(!mine.length||!foes.length)return;
+ let best=null;for(const m of mine)for(const f of foes){const d=Math.hypot(f.x-m.x,f.y-m.y);if(!best||d<best.d)best={m,f,d}}
+ const {m,f}=best,nx=(f.x-m.x)/best.d,ny=(f.y-m.y)/best.d,pull=MAX_PULL*e.scale*.75;
+ const t=(now%1800)/1800,k=t<.15?0:t<.6?(t-.15)/.45:1,a=t<.1?t/.1:t>.8?Math.max(0,1-(t-.8)/.12):1;
+ const hx=m.x-nx*pull*k,hy=m.y-ny*pull*k;
+ ctx.save();ctx.globalAlpha=a;
+ ctx.beginPath();ctx.arc(f.x,f.y,f.r+5+3*Math.sin(now/150),0,Math.PI*2);ctx.strokeStyle="#ff8da1";ctx.lineWidth=2;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+ ctx.beginPath();ctx.moveTo(m.x,m.y);ctx.lineTo(hx,hy);ctx.strokeStyle="#ffffffaa";ctx.lineWidth=2;ctx.setLineDash([3,5]);ctx.stroke();ctx.setLineDash([]);
+ if(k>.5){const len=m.r*1.5+k*m.r*2.5,tx=m.x+nx*len,ty=m.y+ny*len;ctx.beginPath();ctx.moveTo(m.x+nx*m.r*1.1,m.y+ny*m.r*1.1);ctx.lineTo(tx,ty);ctx.strokeStyle="#ffd166";ctx.lineWidth=3.5;ctx.lineCap="round";ctx.stroke()}
+ ctx.font=`${Math.round(m.r*2.2)}px sans-serif`;ctx.textAlign="center";ctx.textBaseline="top";ctx.fillText("👆",hx,hy-m.r*.3);
+ ctx.restore();
+}
+function finishTutorial(won){
+ acc.tutorialDone=true;let reward=0;
+ if(!acc.tutorialRewarded){acc.tutorialRewarded=true;reward=earn(TUTORIAL_REWARD)}
+ save();Sound.play(won?"win":"lose");setCoach(null);
+ queueModal({ico:won?"🎉":"👍",title:T("tut_done_t"),body:T(won?"tut_done_win":"tut_done_lose"),reward:reward?"🪙 +"+reward:"",sound:reward?"levelup":null,
+  onOk:()=>{cleanupGame();go("menu");if(reward)coinDelta(reward)}});
+}
+
 /* ============================================================
    부팅
 ============================================================ */
@@ -2350,7 +2543,11 @@ renderSoundToggles();renderSpeedBtn();setHudPlayersHidden(false);renderAiConfig(
 $("loadingStatus").textContent=T("loading_status");$("loadingTip").textContent=T("loading_tip");
 (function boot(){
  const fill=$("loadingFill");let p=0;
- const iv=setInterval(()=>{p=Math.min(100,p+18+Math.random()*14);fill.style.width=p+"%";if(p>=100){clearInterval(iv);$("loadingStatus").textContent=T("loading_ready");setTimeout(()=>go("menu"),260)}},120);
+ const iv=setInterval(()=>{p=Math.min(100,p+18+Math.random()*14);fill.style.width=p+"%";if(p>=100){clearInterval(iv);$("loadingStatus").textContent=T("loading_ready");setTimeout(()=>{
+  if(!acc.tutorialDone)tutorialOpen=true;        // 첫 방문: 출석 보상보다 튜토리얼 먼저
+  go("menu");
+  if(!acc.tutorialDone)setTimeout(openTutorial,200);
+ },260)}},120);
 })();
 </script>
 </body></html>
