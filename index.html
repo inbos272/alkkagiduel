@@ -3215,8 +3215,14 @@ function unproj(B,sx,sy,zp){
 /* 작은 물체(알 윗면 등)는 중심 근처에서 원근을 1차 근사 → 2D 아핀 변환으로 스프라이트를 그대로 투영 */
 function affineV(B,x,y,z,ux,uy,uz,vx,vy,vz,rot){
  const c=proj(B,x,y,z);if(!c)return null;
+ /* 카메라 평면에 너무 가까운 물체는 1차 근사가 깨져 화면 전체를 덮는 거대한 원이 됨 → 그리지 않음
+    (이 거리 안쪽은 어차피 화면 아래 밖이라 보이지 않는 위치) */
+ const rr=Math.max(Math.hypot(ux,uy,uz),Math.hypot(vx,vy,vz));if(c.z<rr*3.2)return null;
  const a1=proj(B,x+ux,y+uy,z+uz),a0=proj(B,x-ux,y-uy,z-uz),b1=proj(B,x+vx,y+vy,z+vz),b0=proj(B,x-vx,y-vy,z-vz);
  if(!a1||!a0||!b1||!b0)return null;
+ /* 화면 밖이면 그리지 않음 */
+ const ext=Math.max(Math.abs(a1.x-a0.x),Math.abs(a1.y-a0.y),Math.abs(b1.x-b0.x),Math.abs(b1.y-b0.y));
+ if(c.x+ext<-20||c.x-ext>view.W+20||c.y+ext<-20||c.y-ext>view.H+20)return null;
  let a=(a1.x-a0.x)/2,b=(a1.y-a0.y)/2,cc=(b1.x-b0.x)/2,d=(b1.y-b0.y)/2;
  if(rot){const co=Math.cos(rot),si=Math.sin(rot),na=a*co+cc*si,nb=b*co+d*si,nc=-a*si+cc*co,nd=-b*si+d*co;a=na;b=nb;cc=nc;d=nd}
  return{a,b,c:cc,d,e:c.x,f:c.y,k:c.k,z:c.z};
@@ -3417,7 +3423,7 @@ function drawFaller3D(B,e,f,now){
  else if(f.spec){const sp=stoneFaceCanvas(f.spec,px),w=sp.width/px;ctx.beginPath();ctx.arc(.06,.1,1,0,Math.PI*2);ctx.fillStyle=mixHex(f.spec.lo,"#000000",.5);ctx.fill();ctx.drawImage(sp,-w/2,-w/2,w,w)}
  ctx.globalAlpha=1;
 }
-function groundPath(B,pts,z){scr();ctx.beginPath();let n=0;for(const[x,y]of pts){const p=proj(B,x,y,z||1);if(!p)continue;n++?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)}return n}
+function groundPath(B,pts,z){scr();ctx.beginPath();let n=0;for(const[x,y]of pts){const p=proj(B,x,y,z||1);if(!p||p.z<24)continue;n++?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)}return n}
 function groundCircle(B,x,y,r,z,from,to){const pts=[],a0=from??0,a1=to??Math.PI*2,n=Math.max(12,Math.ceil(Math.abs(a1-a0)/(Math.PI*2)*40));for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;pts.push([x+Math.cos(a)*r,y+Math.sin(a)*r])}return groundPath(B,pts,z)}
 /* 조준선이 처음 닿는 알/범퍼/가장자리까지의 거리 */
 function rayHit(e,s,dx,dy){
