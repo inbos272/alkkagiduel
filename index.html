@@ -829,8 +829,10 @@ function mapSdf(m,x,y){
    AI 난이도 · 물리 상수
 ============================================================ */
 const AI_LEVELS={
- easy:   {err:.5, pw:.74,noise:1.3,tagNoise:420},
- normal: {err:.24,pw:.88,noise:.5, tagNoise:190},
+ /* 새 물리(힘이 모자라면 상대까지 못 감) 기준으로 AI끼리 수백 판 돌려 맞춘 값:
+    쉬움 vs 보통 ≈ 31% 승 · 보통 vs 어려움 ≈ 33% 승 */
+ easy:   {err:.33,pw:.96,noise:1,  tagNoise:420},
+ normal: {err:.2, pw:.98,noise:.55,tagNoise:190},
  hard:   {err:.07,pw:1,  noise:.04,tagNoise:70, sim:{top:7, powers:[.85],offsets:[],refine:0,budget:70,defend:false}},
  pro:    {err:.012,pw:1, noise:0,  tagNoise:20, sim:{top:36,powers:[.5,.68,.84,1],offsets:[-.07,-.035,.035,.07],refine:8,budget:260,defend:true}},
  alkkago:{err:0,  pw:1,  noise:0,  tagNoise:0,  sim:{top:64,powers:[.42,.56,.7,.84,.95,1],offsets:[-.09,-.06,-.03,-.012,.012,.03,.06,.09],refine:14,budget:520,defend:true,focus:true,safety:1.6}}
@@ -882,10 +884,12 @@ function rpDelta(place,tier,streak){
 }
 const BOSS_ORDER=[0,1,2,5,3,4,0,5,1,2,3,5,4,0,1,5,2,3,4,5];   // 동료가 3번 칠 때마다 보스가 1번
 /* 보스 AI: 계산은 정확하지만 레벨이 낮을수록 조준이 흔들림 */
+/* 새 물리(쿨롱 마찰)에서 너무 무겁고 잘 멈추던 보스를 완화 — 나(보통 AI로 대신) + 프로 동료 4명 시뮬레이션 기준 승률:
+   Lv1~5 ≈ 90~100% · Lv10 ≈ 80% · Lv13 ≈ 50% · Lv17 ≈ 33% · Lv20 ≈ 30% */
 function bossStats(lv){
  const base=lv<=6?"hard":lv<=12?"pro":"alkkago",key="boss"+lv;
- if(!AI_LEVELS[key])AI_LEVELS[key]={...AI_LEVELS[base],err:Math.max(.05,.55-lv*.03)};
- return{hp:Math.min(5,2+Math.floor((lv-1)/3)),mass:2.4+lv*.12,fric:.945,rest:.3,scale:1.85,pw:1.3+lv*.04,ai:key,aiName:base};
+ if(!AI_LEVELS[key])AI_LEVELS[key]={...AI_LEVELS[base],err:Math.max(.08,.5-lv*.02)};
+ return{hp:lv<8?2:3,mass:1.55+lv*.015,fric:.973-lv*.0003,rest:.6,scale:1.55+lv*.008,pw:.85+lv*.008,ai:key,aiName:base};
 }
 
 /* ============================================================
@@ -1179,9 +1183,9 @@ ko:{
  janggi_friend_note:"친구 대전은 무료이고 보상이 없어요. 차례마다 기기를 넘겨 주세요.",
  janggi_cho:"초(楚)",janggi_han:"한(漢)",janggi_king_out:"궁 아웃!",janggi_ai:"한(漢) AI",janggi_win:"{name} 승리!",rw_janggi:"장기 알까기 승리",rw_janggi_king:"궁 쳐내기",janggi_king_alive:"궁",
  set_game:"게임",toggle_cam3d:"3D 카메라 연출",cam3d_desc:"내 알을 누르면 3D 조준 · AI 샷도 3D로 따라가요",
- hint_tap3d:"내 알을 눌러 3D 조준 모드로 들어가세요",hint_aim3d:"좌우로 밀어 방향 · 아래로 당겼다 놓으면 발사!",aim3d_tip:"좌우로 밀어 조준 · 아래로 당겨 발사",btn_2d:"↩ 2D",
- coach_1_3d:"👆 검은 내 알을 눌러 보세요! 3D 조준 화면으로 바뀌어요.",coach_aim_3d:"👉 좌우로 밀어 상대 알을 겨누고, 👇 아래로 당겼다 놓으면 발사!",
- tut_flick_b3d:"내 알을 누르면 3D 조준 화면으로 바뀌어요.\n좌우로 밀어 방향을 정하고, 아래로 당겼다 놓으면 발사!"
+ hint_tap3d:"내 알을 눌러 3D 조준 모드로 들어가세요",hint_aim3d:"빈 화면을 밀면 방향 회전 · 내 알을 잡고 아래로 당겼다 놓으면 발사!",aim3d_tip:"화면 밀기 = 방향 · 알 잡고 당기기 = 발사",btn_2d:"↩ 2D",
+ coach_1_3d:"👆 검은 내 알을 눌러 보세요! 3D 조준 화면으로 바뀌어요.",coach_aim_3d:"👉 빈 화면을 좌우로 밀어 상대 알을 겨누고, 👇 내 알을 잡아 아래로 당겼다 놓으면 발사!",
+ tut_flick_b3d:"내 알을 누르면 3D 조준 화면으로 바뀌어요.\n빈 화면을 밀어 방향을 돌리고, 내 알을 잡아 아래로 당겼다 놓으면 발사!"
 },
 en:{
  loading_status:"Setting up the board...",loading_ready:"Ready!",loading_tip:"Battle tokens refill one every 15 minutes. Log in daily for 🪙10 and 🎟️2!",
@@ -1305,9 +1309,9 @@ en:{
  janggi_friend_note:"Friend matches are free with no rewards. Pass the device each turn.",
  janggi_cho:"Cho (楚)",janggi_han:"Han (漢)",janggi_king_out:"General down!",janggi_ai:"Han (漢) AI",janggi_win:"{name} wins!",rw_janggi:"Janggi victory",rw_janggi_king:"General knock-off",janggi_king_alive:"Gen",
  set_game:"Game",toggle_cam3d:"3D camera",cam3d_desc:"Tap your stone to aim in 3D · AI shots are followed in 3D",
- hint_tap3d:"Tap your stone to enter 3D aiming",hint_aim3d:"Swipe sideways to aim · pull down and release to shoot!",aim3d_tip:"Swipe to aim · pull down to shoot",btn_2d:"↩ 2D",
- coach_1_3d:"👆 Tap your black stone! The view switches to 3D aiming.",coach_aim_3d:"👉 Swipe sideways to aim at a stone, 👇 pull down and release to shoot!",
- tut_flick_b3d:"Tap your stone to switch to the 3D aiming view.\nSwipe sideways to aim, pull down and release to shoot!"
+ hint_tap3d:"Tap your stone to enter 3D aiming",hint_aim3d:"Drag empty space to turn · grab your stone, pull down and release to shoot!",aim3d_tip:"Drag screen = turn · grab stone & pull = shoot",btn_2d:"↩ 2D",
+ coach_1_3d:"👆 Tap your black stone! The view switches to 3D aiming.",coach_aim_3d:"👉 Drag empty space to aim at a stone, 👇 grab your stone, pull it down and release to shoot!",
+ tut_flick_b3d:"Tap your stone to switch to the 3D aiming view.\nDrag empty space to turn, then grab your stone, pull down and release to shoot!"
 },
 zh:{
  loading_status:"正在摆好棋盘...",loading_ready:"准备完毕！",loading_tip:"对战券每15分钟恢复1张。每天登录可得🪙10和🎟️2！",
@@ -1426,9 +1430,9 @@ zh:{
  janggi_friend_note:"朋友对战免费且没有奖励。每回合请交换设备。",
  janggi_cho:"楚",janggi_han:"汉",janggi_king_out:"将被击出！",janggi_ai:"汉 AI",janggi_win:"{name} 获胜！",rw_janggi:"象棋弹棋胜利",rw_janggi_king:"击出将",janggi_king_alive:"将",
  set_game:"游戏",toggle_cam3d:"3D镜头",cam3d_desc:"点击棋子进入3D瞄准 · AI出手也用3D跟随",
- hint_tap3d:"点击你的棋子进入3D瞄准",hint_aim3d:"左右滑动瞄准 · 向下拉再松开发射！",aim3d_tip:"左右滑动瞄准 · 向下拉发射",btn_2d:"↩ 2D",
- coach_1_3d:"👆 点击你的黑色棋子！画面会切换到3D瞄准。",coach_aim_3d:"👉 左右滑动瞄准对手棋子，👇 向下拉再松开发射！",
- tut_flick_b3d:"点击你的棋子会切换到3D瞄准画面。\n左右滑动决定方向，向下拉再松开即可发射！"
+ hint_tap3d:"点击你的棋子进入3D瞄准",hint_aim3d:"拖动空白处转向 · 按住棋子向下拉再松开发射！",aim3d_tip:"拖动画面=转向 · 按住棋子拉=发射",btn_2d:"↩ 2D",
+ coach_1_3d:"👆 点击你的黑色棋子！画面会切换到3D瞄准。",coach_aim_3d:"👉 拖动空白处瞄准对手棋子，👇 按住你的棋子向下拉再松开发射！",
+ tut_flick_b3d:"点击你的棋子会切换到3D瞄准画面。\n拖动空白处转向，按住棋子向下拉再松开即可发射！"
 }};
 let currentLang=lsGet("alkkagi_lang")||(navigator.language||"ko").slice(0,2);if(!I18N[currentLang])currentLang="ko";
 function T(k,v){let s=I18N[currentLang]?.[k]??I18N.ko[k]??k;if(v)for(const x in v)s=s.split("{"+x+"}").join(v[x]);return s}
@@ -3438,6 +3442,7 @@ function drawAim3D(B,e,s,yaw,f,human,now){
  /* 조준 안내선 (점선) */
  if(groundPath(B,[[s.x+Fx*r*1.15,s.y+Fy*r*1.15],[s.x+Fx*hit.d,s.y+Fy*hit.d]],1.2)>1){ctx.setLineDash([6,8]);ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.55)";ctx.stroke();ctx.setLineDash([])}
  if(hit.stone){const t=hit.stone,pulse=.5+.5*Math.sin(now/140);if(groundCircle(B,t.x,t.y,t.r*(1.25+pulse*.08),1.5)>2){ctx.lineWidth=2.5;ctx.strokeStyle=e.teamOf(t.owner)===e.teamOf(s.owner)?"rgba(122,211,155,.9)":"rgba(255,110,90,.95)";ctx.stroke()}}
+ if(human&&f===0&&groundCircle(B,s.x,s.y,s.r*(1.3+.08*Math.sin(now/160)),stoneH(s)*.5)>2){ctx.setLineDash([5,5]);ctx.lineWidth=2.5;ctx.strokeStyle="rgba(255,230,160,.9)";ctx.stroke();ctx.setLineDash([])}   // 잡을 수 있는 알 표시
  if(hit.edge&&groundCircle(B,s.x+Fx*hit.d,s.y+Fy*hit.d,8,1.5)>2){ctx.fillStyle="rgba(255,110,90,.7)";ctx.fill()}
  /* 파워 화살표 (판 위에 납작하게) */
  if(f>0){
@@ -3829,7 +3834,7 @@ function onTag(e,from,to){
 }
 function clearGameTimers(){clearInterval(G.t.turn);clearTimeout(G.t.ai);clearTimeout(G.t.end)}
 function clearAimState(){
- if(ptr&&(ptr.kind==="aim"||ptr.kind==="aim3d"))ptr=null;
+ if(ptr&&(ptr.kind==="aim"||ptr.kind==="rot3d"||ptr.kind==="pull3d"))ptr=null;
  $("powerWrap").classList.remove("show");$("powerFill").style.width="0";$("powerPct").textContent="0%";
  if(G.aim3d){G.aim3d=null;showAimUI(false);if(CAM.state==="aim")camSet("return",isFast()?320:620)}
 }
@@ -4107,13 +4112,23 @@ function expireMyPowers(){
         술래잡기 맵은 빈 곳을 끌어 둘러보기 ---- */
 function evPos(ev){const r=canvas.getBoundingClientRect();return{x:ev.clientX-r.left,y:ev.clientY-r.top}}
 function pull3dMax(){return clamp(view.H*.3,150,260)}
+/* 조준 중인 내 알 위를 눌렀는지 (화면상 알 크기보다 조금 넉넉하게) */
+function onAimStone(p){
+ const e=G.e,s=G.aim3d&&e.stones[G.aim3d.id];if(!s||!CAM.p)return false;
+ const q=proj(camBasis(CAM.p),s.ix??s.x,s.iy??s.y,stoneH(s)*.6);if(!q)return false;
+ return Math.hypot(p.x-q.x,p.y-q.y)<=Math.max(s.r*q.k*1.45,40)?q:false;
+}
 canvas.addEventListener("pointerdown",ev=>{
  Sound.unlock();
  const e=G.e;if(!e||ptr)return;
  const p=evPos(ev);
  if(isHumanTurn()&&!G.cine){
   if(G.aim3d){
-   ptr={id:ev.pointerId,kind:"aim3d",x0:p.x,y0:p.y,lx:p.x,moved:0,f:0};
+   /* 알을 잡고 끌면 → 발사 준비(당기기) · 알 밖을 끌면 → 방향 회전만 (절대 발사 안 됨) */
+   const grab=onAimStone(p);
+   /* 최대 힘까지 당기는 거리 = 잡은 곳부터 화면 아래 끝까지 (손가락이 화면 밖으로 나가지 않게) */
+   ptr={id:ev.pointerId,kind:grab?"pull3d":"rot3d",x0:p.x,y0:p.y,lx:p.x,moved:0,f:0,max:clamp(view.H-p.y-18,90,pull3dMax())};
+   if(grab){Sound.play("stretch",0);haptic(8)}
    try{canvas.setPointerCapture(ev.pointerId)}catch(err){}
    return;
   }
@@ -4132,14 +4147,15 @@ canvas.addEventListener("pointermove",ev=>{
  const p=evPos(ev);
  if(ptr.kind==="pan"){view.camX-=(p.x-ptr.x)/view.zoom;view.camY-=(p.y-ptr.y)/view.zoom;ptr.x=p.x;ptr.y=p.y;clampCam();return}
  if(!isHumanTurn()){clearAimState();return}
- if(ptr.kind==="aim3d"){
+ if(ptr.kind==="rot3d"||ptr.kind==="pull3d"){
   if(!G.aim3d||!CAM.aim)return;
   const dx=p.x-ptr.lx;ptr.lx=p.x;ptr.moved=Math.max(ptr.moved,Math.hypot(p.x-ptr.x0,p.y-ptr.y0));
-  const f=clamp((p.y-ptr.y0)/pull3dMax(),0,1);
-  CAM.aim.yaw=angWrap(CAM.aim.yaw+dx*(f>.06?.0016:.0058));   // 당기는 중에는 미세 조정
+  if(!acc.aimTipSeen&&ptr.moved>40){acc.aimTipSeen=true;save();$("aim3dTip").classList.remove("show")}
+  if(ptr.kind==="rot3d"){CAM.aim.yaw=angWrap(CAM.aim.yaw+dx*.0058);return}   // 화면 돌리기: 방향만
+  /* 알 잡고 당기기: 화면 아래쪽(내 쪽)으로 끈 만큼 힘 · 방향은 고정 */
+  const f=clamp((p.y-ptr.y0)/ptr.max,0,1);
   ptr.f=f;G.aim3d.f=f;
   if(Math.abs(f-G.aim3d.lastS)>.06){G.aim3d.lastS=f;if(f>.02)Sound.play("stretch",f)}
-  if(!acc.aimTipSeen&&ptr.moved>40){acc.aimTipSeen=true;save();$("aim3dTip").classList.remove("show")}
   const pc=Math.round(f*100);$("powerFill").style.width=pc+"%";$("powerPct").textContent=pc+"%";
   return;
  }
@@ -4150,11 +4166,11 @@ canvas.addEventListener("pointermove",ev=>{
 function releasePointer(ev){
  if(!ptr||ev.pointerId!==ptr.id)return;
  const q=ptr;ptr=null;
- if(q.kind==="aim3d"){
+ if(q.kind==="rot3d"||q.kind==="pull3d"){
   if(!G.aim3d)return;
   const e=G.e;
-  if(ev.type==="pointerup"&&isHumanTurn()&&q.f>=.06){const yaw=CAM.aim.yaw,id=G.aim3d.id;fire(id,Math.cos(yaw),Math.sin(yaw),q.f);return}
-  if(q.moved<8&&ev.type==="pointerup"){const s=pickOwnStone(e,evPos(ev));if(s&&s.id!==G.aim3d.id){enterAim3d(s);return}}
+  if(q.kind==="pull3d"&&ev.type==="pointerup"&&isHumanTurn()&&q.f>=.06){const yaw=CAM.aim.yaw,id=G.aim3d.id;fire(id,Math.cos(yaw),Math.sin(yaw),q.f);return}
+  if(q.kind==="rot3d"&&q.moved<8&&ev.type==="pointerup"){const s=pickOwnStone(e,evPos(ev));if(s&&s.id!==G.aim3d.id){enterAim3d(s);return}}
   G.aim3d.f=0;$("powerFill").style.width="0";$("powerPct").textContent="0%";
   return;
  }
