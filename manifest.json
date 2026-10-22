@@ -11,7 +11,7 @@
   "theme_color": "#15100b",
   "icons": [
     {
-      "src": "https://inbos272.github.io/icons/icon-192.png",
+      "src": "https://inbos272.github.io/alkkagiduel/icon.png",
       "type": "image/png",
       "sizes": "192x192",
       "isSquare": true,
@@ -24,7 +24,7 @@
       "is192x192": true
     },
     {
-      "src": "https://inbos272.github.io/icons/apple-touch-icon.png",
+      "src": "https://inbos272.github.io/alkkagiduel/icon.png",
       "isSquare": false,
       "isPng": true,
       "isWebp": false,
