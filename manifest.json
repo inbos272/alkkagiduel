@@ -5,9 +5,9 @@
   "display": "standalone",
   "name": "알까고",
   "orientation": "any",
-  "scope": "/",
+  "scope": "/alkkagiduel/",
   "short_name": "알까고",
-  "start_url": "/",
+  "start_url": "/alkkagiduel/",
   "theme_color": "#15100b",
   "icons": [
     {
