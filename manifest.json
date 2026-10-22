@@ -15,7 +15,7 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/alkkagiduel/icon.png",
+      "src": "/alkkagiduel/logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
