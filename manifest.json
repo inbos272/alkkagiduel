@@ -1,17 +1,17 @@
 {
   "background_color": "#ffffff",
-  "description": "둥근 판 위에서 알을 튕겨 상대를 밀어내는 알까기 게임 — 오프라인으로 즐기는 최대 8인 AI 대전",
+  "description": "바둑판 위에서 알을 튕겨 상대를 밀어내는 알까기 게임 — 알까고. 랭크전·빅 보스전·술래잡기까지 오프라인으로 즐겨요.",
   "dir": "ltr",
   "display": "standalone",
-  "name": "알까기",
+  "name": "알까고",
   "orientation": "any",
   "scope": "/",
-  "short_name": "알까기",
-  "start_url": "/alkkagiduel",
-  "theme_color": "#0b1420",
+  "short_name": "알까고",
+  "start_url": "/",
+  "theme_color": "#15100b",
   "icons": [
     {
-      "src": "https://inbos272.github.io/alkkagiduel/icon.png",
+      "src": "https://inbos272.github.io/icons/icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "isSquare": true,
@@ -24,7 +24,7 @@
       "is192x192": true
     },
     {
-      "src": "https://inbos272.github.io/alkkagiduel/icon.png",
+      "src": "https://inbos272.github.io/icons/apple-touch-icon.png",
       "isSquare": false,
       "isPng": true,
       "isWebp": false,
