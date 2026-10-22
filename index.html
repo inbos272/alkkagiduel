@@ -453,6 +453,23 @@ canvas#board{position:absolute;inset:0;width:100%;height:100%;touch-action:none;
 .tut-actions{display:flex;gap:8px;margin-top:14px}
 .tut-actions .btn{flex:1}
 .tut-actions .btn.primary{flex:1.6}
+.ob-card{max-height:92%;display:flex;flex-direction:column}
+.ob-globe{font-size:46px;line-height:1.1}
+.ob-langs{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+.ob-langs button{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);font-size:16px;font-weight:900;text-align:left}
+.ob-langs button i{font-style:normal;font-size:16px;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#140f0a;border:1px solid var(--line);flex-shrink:0}
+.ob-langs button.active i{border-color:var(--amber)}
+.ob-langs button.active{border-color:var(--amber);background:#3a2a14;color:var(--gold);box-shadow:0 0 0 1px #f2a03d55}
+.ob-policy{margin-top:12px;flex:1;min-height:120px;max-height:46vh;overflow-y:auto;text-align:left;padding:12px 14px;border-radius:12px;background:#0d0906;border:1px solid var(--line-soft);font-size:11.5px;line-height:1.6;color:var(--text-dim);touch-action:pan-y;user-select:text;-webkit-user-select:text}
+.ob-policy h4{margin:10px 0 3px;font-size:12.5px;color:var(--text)}
+.ob-policy h4:first-child{margin-top:0}
+.ob-policy p{margin:0}
+.ob-check{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:13px;font-weight:800;text-align:left;cursor:pointer}
+.ob-check input{width:20px;height:20px;accent-color:#e8553d;flex-shrink:0}
+.adm-grid{display:grid;grid-template-columns:auto 1fr;gap:9px 10px;align-items:center;padding:13px 14px}
+.adm-grid label{font-size:13px;font-weight:800}
+.adm-grid input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#120d09;color:var(--text);font-size:15px;font-weight:800;outline:none;user-select:text;-webkit-user-select:text}
+.adm-grid input:focus{border-color:var(--amber)}
 .coach{position:absolute;left:16px;right:16px;bottom:calc(100px + env(safe-area-inset-bottom));z-index:7;display:none;padding:12px 14px;border-radius:14px;background:rgba(46,30,14,.95);border:1px solid #f2a03d88;color:#ffecd0;font-size:13px;font-weight:800;line-height:1.5;text-align:center;box-shadow:0 10px 30px #0009;pointer-events:none}
 .coach.show{display:block;animation:fadeIn .25s ease both}
 
@@ -708,6 +725,8 @@ canvas#board{position:absolute;inset:0;width:100%;height:100%;touch-action:none;
 
 <div class="sheet-wrap" id="sheet" role="dialog" aria-modal="true"><div class="sheet-back" id="sheetBack"></div><div class="sheet-card" id="sheetCard"></div></div>
 
+<div class="tut" id="onboard" role="dialog" aria-modal="true"><div class="tut-card ob-card" id="obCard"></div></div>
+
 <div class="tut" id="tutorial" role="dialog" aria-modal="true">
   <div class="tut-card">
     <div class="tut-art" id="tutArt"></div>
@@ -792,7 +811,8 @@ const MAPS={
 const JG_SX=56,JG_SY=54;
 function janggiPoint(c,r){return{x:C+(c-4)*JG_SX,y:C+(r-4.5)*JG_SY}}
 /* 장기알 — 크기가 클수록 무겁다 (궁 > 차·포·마·상 > 사·졸) */
-const JG_KINDS={king:{r:25,m:1.5},cha:{r:21.5,m:1},po:{r:21.5,m:1},ma:{r:21.5,m:1},sang:{r:21.5,m:1},sa:{r:17,m:.66},jol:{r:17,m:.66}};
+/* 궁은 가장 크고 무거움 — 2.5 미만이면 첫 수에 가운데 졸을 정면으로 세게 쳐서 연쇄 충돌로 상대 궁을 한 번에 날릴 수 있었음 */
+const JG_KINDS={king:{r:25,m:2.6},cha:{r:21.5,m:1},po:{r:21.5,m:1},ma:{r:21.5,m:1},sang:{r:21.5,m:1},sa:{r:17,m:.66},jol:{r:17,m:.66}};
 const JG_CH={cha:["車","車"],po:["包","包"],ma:["馬","馬"],sang:["象","象"],sa:["士","士"],jol:["卒","兵"],king:["楚","漢"]};
 const JG_INK=["#12784a","#c0261c"];
 const JG_FORMS={masang:["ma","sang","ma","sang"],sangma:["sang","ma","sang","ma"],out:["ma","sang","sang","ma"],in:["sang","ma","ma","sang"]};
@@ -829,10 +849,10 @@ function mapSdf(m,x,y){
    AI 난이도 · 물리 상수
 ============================================================ */
 const AI_LEVELS={
- /* 새 물리(힘이 모자라면 상대까지 못 감) 기준으로 AI끼리 수백 판 돌려 맞춘 값:
-    쉬움 vs 보통 ≈ 31% 승 · 보통 vs 어려움 ≈ 33% 승 */
- easy:   {err:.33,pw:.96,noise:1,  tagNoise:420},
- normal: {err:.2, pw:.98,noise:.55,tagNoise:190},
+ /* AI끼리 여러 맵에서 수백 판 돌려 맞춘 값 (look: 실제 물리로 미리 쳐 볼 후보 수 — 구멍·가장자리로 빠지는 샷 회피):
+    쉬움 vs 보통 ≈ 30% 승 · 보통 vs 어려움 ≈ 29% 승 */
+ easy:   {err:.33,pw:.96,noise:1,  tagNoise:420,look:3},
+ normal: {err:.2, pw:.98,noise:.55,tagNoise:190,look:6},
  hard:   {err:.07,pw:1,  noise:.04,tagNoise:70, sim:{top:7, powers:[.85],offsets:[],refine:0,budget:70,defend:false}},
  pro:    {err:.012,pw:1, noise:0,  tagNoise:20, sim:{top:36,powers:[.5,.68,.84,1],offsets:[-.07,-.035,.035,.07],refine:8,budget:260,defend:true}},
  alkkago:{err:0,  pw:1,  noise:0,  tagNoise:0,  sim:{top:64,powers:[.42,.56,.7,.84,.95,1],offsets:[-.09,-.06,-.03,-.012,.012,.03,.06,.09],refine:14,budget:520,defend:true,focus:true,safety:1.6}}
@@ -1162,7 +1182,11 @@ ko:{
  a_allmaps:"모든 맵에서 승리",a_ice5:"빙판에서 5승",a_bumper5:"범퍼 맵에서 5승",a_mini5:"미니 맵에서 5승",a_level10:"레벨 10 달성",a_level20:"레벨 20 달성",a_level35:"레벨 35 달성",
  a_maxup1:"강화 하나 최대 레벨",a_maxall:"모든 강화 최대 레벨",a_skins4:"스킨 4개 수집",a_skins10:"스킨 10개 수집",a_trails5:"궤적 5개 수집",a_effects4:"효과 4개 수집",a_avatars5:"아바타 5개 수집",a_boxes10:"행운 상자 10번 열기",
  a_visit7:"7일 방문",a_visit30:"30일 방문",a_missions30:"미션 30개 완료",a_practice10:"연습 10판",a_earn5000:"코인 누적 5,000개 획득",a_spend3000:"코인 누적 3,000개 사용",
- ad_reward_btn:"📺 광고 보고 🪙{n}",ad_left:"오늘 {a}/{b}",ad_limit:"오늘 광고 보상은 모두 받았어요 (하루 {n}회)",ad_reward_got:"광고 보상 🪙{n} 지급!",ad_fail:"광고를 끝까지 보지 않았거나 불러오지 못했어요",ad_title:"광고",ad_fake_note:"웹 미리보기용 테스트 광고예요. 앱(AdMob 연동)에서는 실제 광고가 재생돼요.",ad_close:"닫기",ad_card_t:"광고 보고 코인 받기",ad_card_d:"광고를 끝까지 보면 🪙{n} · 하루 최대 {m}회",rar_rare:"희귀",rar_epic:"영웅",rar_legend:"전설",rar_mythic:"신화",rar_rainbow:"초월",
+ ad_reward_btn:"📺 광고 보고 🪙{n}",ad_left:"오늘 {a}/{b}",ad_limit:"오늘 광고 보상은 모두 받았어요 (하루 {n}회)",ad_reward_got:"광고 보상 🪙{n} 지급!",ad_fail:"광고를 끝까지 보지 않았거나 불러오지 못했어요",ad_title:"광고",ad_fake_note:"웹 미리보기용 테스트 광고예요. 앱(AdMob 연동)에서는 실제 광고가 재생돼요.",ad_close:"닫기",ad_card_t:"광고 보고 코인 받기",ad_card_d:"광고를 끝까지 보면 🪙{n} · 하루 최대 {m}회",
+ pp_title:"개인정보 처리방침",pp_intro:"알까고를 시작하기 전에 아래 내용을 확인하고 동의해 주세요.",pp_check:"개인정보 처리방침을 읽었고 이에 동의합니다",pp_agree:"동의하고 시작",pp_back:"← 언어",pp_need:"동의해야 게임을 시작할 수 있어요",pp_contact_store:"앱 스토어 페이지의 개발자 연락처로 문의해 주세요.",
+ pp_body:"<h4>1. 수집하는 정보</h4><p>· 이 기기에서 무작위로 만든 계정 번호, 닉네임, 게임 기록(코인·레벨·전적·구매한 꾸미기·설정)<br>· 광고를 보여 줄 때 Google AdMob이 수집하는 광고 ID, 기기·앱 정보, IP 기반 대략적 위치, 광고 반응 정보</p><h4>2. 이용 목적</h4><p>게임 진행 저장, 미션·출석 보상, 광고 제공과 광고 보상 지급</p><h4>3. 보관 위치와 기간</h4><p>게임 기록은 서버로 보내지 않고 이 기기에만 저장돼요. 앱을 지우거나 설정 › 기록 초기화를 하면 바로 삭제돼요. 광고 정보는 Google의 정책에 따라 처리돼요.</p><h4>4. 제3자 제공 · 처리 위탁</h4><p>광고 제공을 위해 Google LLC(AdMob)가 위 광고 정보를 처리해요. (policies.google.com/technologies/partner-sites)</p><h4>5. 이용자의 권리</h4><p>언제든지 설정 › 기록 초기화로 모든 기록을 지울 수 있어요. 기기 설정에서 광고 ID를 재설정하거나 맞춤 광고를 끌 수 있고, 유럽 등에서는 광고 동의를 바꿀 수 있어요.</p><h4>6. 아동</h4><p>만 14세 미만은 보호자의 동의를 받아 이용해 주세요.</p><h4>7. 문의</h4><p>{contact}</p><h4>8. 변경</h4><p>방침이 바뀌면 앱 안에서 알려 드려요. 시행일: {date}</p>",
+ admin_title:"관리자",admin_note:"관리자 계정 전용 · 값을 정하고 적용을 누르세요",admin_coins:"코인",admin_level:"레벨",admin_tokens:"대전 토큰",admin_apply:"적용",admin_done:"🛠 관리자 값이 적용됐어요",
+ rar_common:"일반",rar_rare:"희귀",rar_epic:"영웅",rar_legend:"전설",rar_mythic:"신화",rar_rainbow:"초월",
  pw_title:"⚡ 초능력 · {name}",pw_uses:"유료 대전마다 {n}회 · 내 차례에 버튼으로 발동",pw_armed:"⚡ {name} 장전! 다음 샷에 실려요",pw_on:"⚡ {name} 발동!",pw_save:"🛡 세이브!",pw_double_go:"🔁 한 번 더!",pw_shock_fx:"💥 충격파!",
  pw_power_n:"파워샷",pw_power_d:"다음 샷이 {p}% 더 세게 날아가요.",
  pw_shock_n:"충격파",pw_shock_d:"다음 샷이 처음 부딪히는 순간 주변 상대 알을 폭발로 밀어내요.",
@@ -1288,7 +1312,11 @@ en:{
  a_allmaps:"Win on Every Map",a_ice5:"5 Wins on Ice",a_bumper5:"5 Wins on Bumper",a_mini5:"5 Wins on Mini",a_level10:"Reach Level 10",a_level20:"Reach Level 20",a_level35:"Reach Level 35",
  a_maxup1:"Max Out an Upgrade",a_maxall:"Max Out All Upgrades",a_skins4:"Collect 4 Skins",a_skins10:"Collect 10 Skins",a_trails5:"Collect 5 Trails",a_effects4:"Collect 4 Effects",a_avatars5:"Collect 5 Avatars",a_boxes10:"Open 10 Lucky Boxes",
  a_visit7:"Visit 7 Days",a_visit30:"Visit 30 Days",a_missions30:"Complete 30 Missions",a_practice10:"10 Practice Games",a_earn5000:"Earn 5,000 Coins",a_spend3000:"Spend 3,000 Coins",
- ad_reward_btn:"📺 Watch ad 🪙{n}",ad_left:"Today {a}/{b}",ad_limit:"You've claimed all ad rewards today ({n}/day)",ad_reward_got:"Ad reward 🪙{n}!",ad_fail:"The ad wasn't finished or couldn't load",ad_title:"Ad",ad_fake_note:"Test ad for the web preview. The app (with AdMob) shows real ads.",ad_close:"Close",ad_card_t:"Watch an ad for coins",ad_card_d:"Watch to the end for 🪙{n} · up to {m} per day",rar_rare:"Rare",rar_epic:"Epic",rar_legend:"Legendary",rar_mythic:"Mythic",rar_rainbow:"Transcendent",
+ ad_reward_btn:"📺 Watch ad 🪙{n}",ad_left:"Today {a}/{b}",ad_limit:"You've claimed all ad rewards today ({n}/day)",ad_reward_got:"Ad reward 🪙{n}!",ad_fail:"The ad wasn't finished or couldn't load",ad_title:"Ad",ad_fake_note:"Test ad for the web preview. The app (with AdMob) shows real ads.",ad_close:"Close",ad_card_t:"Watch an ad for coins",ad_card_d:"Watch to the end for 🪙{n} · up to {m} per day",
+ pp_title:"Privacy Policy",pp_intro:"Please read and agree to the following before you start Alkkago.",pp_check:"I have read and agree to the Privacy Policy",pp_agree:"Agree & Start",pp_back:"← Language",pp_need:"You need to agree to start the game",pp_contact_store:"Please use the developer contact on the app store page.",
+ pp_body:"<h4>1. Information we collect</h4><p>· A random account number created on this device, your nickname and game records (coins, level, stats, cosmetics, settings)<br>· When ads are shown, Google AdMob collects the advertising ID, device and app information, approximate location from IP, and ad interactions</p><h4>2. Why we use it</h4><p>To save your progress, give mission and daily rewards, and show ads and ad rewards</p><h4>3. Where and how long</h4><p>Game records are never sent to a server; they stay on this device. Uninstalling the app or Settings › Reset data deletes them immediately. Ad data is handled under Google's policies.</p><h4>4. Third parties</h4><p>Google LLC (AdMob) processes the ad information above to serve ads. (policies.google.com/technologies/partner-sites)</p><h4>5. Your rights</h4><p>You can erase all records any time with Settings › Reset data. You can reset your advertising ID or turn off personalized ads in your device settings, and change ad consent where required (e.g. EU).</p><h4>6. Children</h4><p>Children under 14 should use the app with a parent's or guardian's consent.</p><h4>7. Contact</h4><p>{contact}</p><h4>8. Changes</h4><p>We will let you know in the app if this policy changes. Effective: {date}</p>",
+ admin_title:"Admin",admin_note:"Admin account only · set values and tap Apply",admin_coins:"Coins",admin_level:"Level",admin_tokens:"Battle tokens",admin_apply:"Apply",admin_done:"🛠 Admin values applied",
+ rar_common:"Common",rar_rare:"Rare",rar_epic:"Epic",rar_legend:"Legendary",rar_mythic:"Mythic",rar_rainbow:"Transcendent",
  pw_title:"⚡ Power · {name}",pw_uses:"{n}× per paid match · tap the button on your turn",pw_armed:"⚡ {name} loaded into your next shot!",pw_on:"⚡ {name}!",pw_save:"🛡 SAVED!",pw_double_go:"🔁 One more!",pw_shock_fx:"💥 Shockwave!",
  pw_power_n:"Power Shot",pw_power_d:"Your next shot flies {p}% faster.",
  pw_shock_n:"Shockwave",pw_shock_d:"On its first impact, your next shot blasts nearby enemy stones away.",
@@ -1414,7 +1442,11 @@ zh:{
  a_allmaps:"在所有地图获胜",a_ice5:"冰面5胜",a_bumper5:"弹跳地图5胜",a_mini5:"迷你地图5胜",a_level10:"达到10级",a_level20:"达到20级",a_level35:"达到35级",
  a_maxup1:"一项强化满级",a_maxall:"全部强化满级",a_skins4:"收集4款皮肤",a_skins10:"收集10款皮肤",a_trails5:"收集5种轨迹",a_effects4:"收集4种特效",a_avatars5:"收集5个头像",a_boxes10:"打开10次幸运宝箱",
  a_visit7:"访问7天",a_visit30:"访问30天",a_missions30:"完成30个任务",a_practice10:"练习10场",a_earn5000:"累计获得5000金币",a_spend3000:"累计花费3000金币",
- ad_reward_btn:"📺 看广告 🪙{n}",ad_left:"今日 {a}/{b}",ad_limit:"今天的广告奖励已全部领取（每天{n}次）",ad_reward_got:"广告奖励 🪙{n}！",ad_fail:"广告未看完或加载失败",ad_title:"广告",ad_fake_note:"网页预览用的测试广告。在应用（接入AdMob）中会播放真实广告。",ad_close:"关闭",ad_card_t:"看广告领金币",ad_card_d:"看完广告得🪙{n} · 每天最多{m}次",rar_rare:"稀有",rar_epic:"英雄",rar_legend:"传说",rar_mythic:"神话",rar_rainbow:"超越",
+ ad_reward_btn:"📺 看广告 🪙{n}",ad_left:"今日 {a}/{b}",ad_limit:"今天的广告奖励已全部领取（每天{n}次）",ad_reward_got:"广告奖励 🪙{n}！",ad_fail:"广告未看完或加载失败",ad_title:"广告",ad_fake_note:"网页预览用的测试广告。在应用（接入AdMob）中会播放真实广告。",ad_close:"关闭",ad_card_t:"看广告领金币",ad_card_d:"看完广告得🪙{n} · 每天最多{m}次",
+ pp_title:"隐私政策",pp_intro:"开始游戏前，请阅读并同意以下内容。",pp_check:"我已阅读并同意隐私政策",pp_agree:"同意并开始",pp_back:"← 语言",pp_need:"需要同意后才能开始游戏",pp_contact_store:"请通过应用商店页面上的开发者联系方式与我们联系。",
+ pp_body:"<h4>1. 收集的信息</h4><p>· 在本设备上随机生成的账号编号、昵称和游戏记录（金币、等级、战绩、装扮、设置）<br>· 展示广告时由 Google AdMob 收集的广告ID、设备与应用信息、基于IP的大致位置以及广告互动信息</p><h4>2. 使用目的</h4><p>保存游戏进度、发放任务与签到奖励、展示广告并发放广告奖励</p><h4>3. 保存位置与期限</h4><p>游戏记录不会发送到服务器，只保存在本设备上。删除应用或在 设置 › 重置记录 后会立即删除。广告信息依照 Google 的政策处理。</p><h4>4. 第三方</h4><p>为展示广告，Google LLC（AdMob）会处理上述广告信息。（policies.google.com/technologies/partner-sites）</p><h4>5. 用户权利</h4><p>您可随时通过 设置 › 重置记录 删除全部记录，也可在设备设置中重置广告ID或关闭个性化广告；在欧盟等地区可以更改广告同意。</p><h4>6. 儿童</h4><p>未满14岁的儿童请在监护人同意下使用。</p><h4>7. 联系方式</h4><p>{contact}</p><h4>8. 变更</h4><p>政策变更时会在应用内通知。生效日期：{date}</p>",
+ admin_title:"管理员",admin_note:"仅限管理员账号 · 设定数值后点击应用",admin_coins:"金币",admin_level:"等级",admin_tokens:"对战券",admin_apply:"应用",admin_done:"🛠 管理员数值已应用",
+ rar_common:"普通",rar_rare:"稀有",rar_epic:"英雄",rar_legend:"传说",rar_mythic:"神话",rar_rainbow:"超越",
  pw_title:"⚡ 超能力 · {name}",pw_uses:"每场付费对战{n}次 · 在你的回合点击按钮发动",pw_armed:"⚡ {name}已装填！下一击生效",pw_on:"⚡ {name}发动！",pw_save:"🛡 救回！",pw_double_go:"🔁 再来一次！",pw_shock_fx:"💥 冲击波！",
  pw_power_n:"强力射击",pw_power_d:"下一击速度提高{p}%。",pw_shock_n:"冲击波",pw_shock_d:"下一击首次碰撞时，把周围的对手棋子炸开。",
  pw_brake_n:"定身击",pw_brake_d:"下一击首次碰撞后，你的棋子立刻停住并把力量全部传出。",pw_magnet_n:"磁力击",pw_magnet_d:"下一击会弯向最近的对手棋子。",
@@ -1681,7 +1713,7 @@ function defaultAcc(){return{
  knockouts:0,bestCombo:0,win8:0,practiceGames:0,visitDays:0,lastVisit:"",
  perfects:0,clutch:0,boxes:0,missionsDone:0,totalEarned:0,totalSpent:0,mapWins:{},
  upgrades:{},skins:["basic"],skin:"basic",trails:["none"],trail:"none",effects:["basic"],effect:"basic",avatars:["auto"],avatar:"auto",
- items:{},daily:null,ach:{},achSeen:{},tutorialDone:false,tutorialRewarded:false,aimTipSeen:false,adDay:{date:"",n:0},adGames:0,
+ items:{},daily:null,ach:{},achSeen:{},tutorialDone:false,tutorialRewarded:false,aimTipSeen:false,adDay:{date:"",n:0},adGames:0,consent:null,
  tokens:TOKEN.max,tokenTs:Date.now(),
  rank:{rp:0,season:seasonStr(),peak:0,best:0,games:0,firsts:0,streak:0},
  boss:{level:1,wins:0},
@@ -1705,7 +1737,7 @@ function loadAcc(){
  m.tokenTs=Math.min(Date.now(),num(a.tokenTs,Date.now()));
  m.lastVisit=typeof a.lastVisit==="string"?a.lastVisit:"";
  m.tutorialDone=!!a.tutorialDone||m.games+m.practiceGames>0;   // 기존 플레이어는 튜토리얼 생략
- m.tutorialRewarded=!!a.tutorialRewarded;m.aimTipSeen=!!a.aimTipSeen;m.adGames=Math.floor(clamp(num(a.adGames),0,99));if(isObj(a.adDay)&&typeof a.adDay.date==="string")m.adDay={date:a.adDay.date,n:Math.floor(clamp(num(a.adDay.n),0,99))};
+ m.tutorialRewarded=!!a.tutorialRewarded;m.aimTipSeen=!!a.aimTipSeen;if(isObj(a.consent))m.consent={v:num(a.consent.v),at:num(a.consent.at),lang:String(a.consent.lang||"")};m.adGames=Math.floor(clamp(num(a.adGames),0,99));if(isObj(a.adDay)&&typeof a.adDay.date==="string")m.adDay={date:a.adDay.date,n:Math.floor(clamp(num(a.adDay.n),0,99))};
  UPGRADES.forEach(u=>{const l=Math.floor(clamp(num(a.upgrades?.[u.id]),0,u.max));if(l)m.upgrades[u.id]=l});
  for(const k in COSMETIC_SETS){
   const set=COSMETIC_SETS[k],free=set.list[0].id;
@@ -2230,7 +2262,7 @@ function renderShop(){
   sub.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{cosKind=b.dataset.kind;Sound.play("ui");renderShop()});
   $("filterNew").onclick=()=>{onlyNew=!onlyNew;Sound.play("ui");renderShop()};
   $("shopNote").textContent=T("shop_note_"+cosKind);list.className="shop-grid";
-  const items=set.list.filter(it=>!onlyNew||!owns(cosKind,it.id));
+  const items=set.list.filter(it=>!onlyNew||!owns(cosKind,it.id)).sort((a,b)=>a.rar-b.rar||a.cost-b.cost);   // 등급 → 가격 순
   if(!items.length)list.innerHTML=`<p class="note" style="grid-column:1/-1;text-align:center">${T("all_collected")}</p>`;
   items.forEach(item=>{
    const own=owns(cosKind,item.id),eq=acc[set.eq]===item.id,price=dealPrice(cosKind,item);
@@ -2417,8 +2449,15 @@ function renderSettings(){
  <div class="set-group">
   <button class="set-row" data-set="nick"><span class="sr-ico">✏️</span><span class="sr-main">${T("nick_title")}</span><span class="sr-val">${escapeHtml(displayName())}</span></button>
   <button class="set-row" data-set="help"><span class="sr-ico">❓</span><span class="sr-main">${T("help")}</span><span class="sr-val">›</span></button>
+  <button class="set-row" data-set="privacy"><span class="sr-ico">🔒</span><span class="sr-main">${T("pp_title")}</span><span class="sr-val">›</span></button>
   <button class="set-row danger" data-set="reset"><span class="sr-ico">🗑️</span><span class="sr-main">${T("reset_data")}</span><span class="sr-val">›</span></button>
  </div>
+ ${isAdmin()?`<div class="section-title"><span>🛠 ${T("admin_title")}</span><small>#${ADMIN_ID}</small></div>
+ <div class="set-group"><div class="adm-grid">
+  <label for="admCoins">🪙 ${T("admin_coins")}</label><input id="admCoins" type="number" inputmode="numeric" min="0" max="9999999" value="${acc.coins}">
+  <label for="admLevel">⭐ ${T("admin_level")}</label><input id="admLevel" type="number" inputmode="numeric" min="1" max="99" value="${acc.level}">
+  <label for="admTokens">🎟️ ${T("admin_tokens")}</label><input id="admTokens" type="number" inputmode="numeric" min="0" max="${TOKEN.cap}" value="${acc.tokens}">
+ </div><div style="padding:0 14px 13px"><p class="note" style="margin:0 0 9px">${T("admin_note")}</p><button class="btn gold block" data-set="admin">${T("admin_apply")}</button></div></div>`:""}
  <div class="foot-note">${T("device_account",{id:deviceId.slice(0,6).toUpperCase()})}<br>알까고 v4.0</div>`;
 }
 $("settingsBody").addEventListener("click",ev=>{
@@ -2432,9 +2471,23 @@ $("settingsBody").addEventListener("click",ev=>{
  else if(k==="cam3d"){cam3dPref=!cam3dPref;lsSet("alkkagi_cam3d",cam3dPref?"on":"off");Sound.play("ui")}
  else if(k==="nick"){editNickname();return}
  else if(k==="help"){Sound.play("ui");openTutorial();return}
+ else if(k==="privacy"){Sound.play("ui");showPrivacy();return}
  else if(k==="reset"){askReset();return}
+ else if(k==="admin"){applyAdmin();return}
  renderSettings();renderSoundToggles();
 });
+/* 관리자 계정(기기 번호 #5DDF04): 코인 · 레벨 · 대전 토큰을 직접 지정 */
+const ADMIN_ID="5DDF04";
+function isAdmin(){return deviceId.slice(0,6).toUpperCase()===ADMIN_ID}
+function applyAdmin(){
+ if(!isAdmin())return;
+ const v=(id,a,b,d)=>{const n=Math.floor(num($(id).value,d));return clamp(n,a,b)};
+ acc.coins=v("admCoins",0,9999999,acc.coins);
+ const lv=v("admLevel",1,99,acc.level);if(lv!==acc.level){acc.level=lv;acc.xp=0}
+ acc.tokens=v("admTokens",0,TOKEN.cap,acc.tokens);if(acc.tokens>=TOKEN.max)acc.tokenTs=Date.now();
+ save();Sound.play("claim");showToast(T("admin_done"),"good");
+ const y=screens.settings.querySelector(".content").scrollTop;renderSettings();refreshAll();screens.settings.querySelector(".content").scrollTop=y;
+}
 function askReset(){
  Sound.play("ui");
  queueModal({ico:"⚠️",title:T("reset_t"),body:T("reset_b"),okText:T("reset_ok"),cancelText:T("btn_cancel"),danger:true,onOk:()=>{
@@ -2717,6 +2770,12 @@ function pathBlocked(e,from,ax,ay,dist,ignore){
  for(const b of e.bumpers){const rx=b.x-from.x,ry=b.y-from.y,proj=rx*ax+ry*ay;if(proj>0&&proj<dist&&Math.abs(rx*ay-ry*ax)<b.r+from.r)return true}
  return false;
 }
+/* 내 알이 목표까지 가는 길에 구멍(판이 없는 곳)을 지나는지 */
+function overVoid(e,my,ax,ay,dist){
+ if(e.walls)return false;
+ for(let d=my.r;d<dist;d+=8)if(e.sdf(my.x+ax*d,my.y+ay*d)>-my.r*.15)return true;
+ return false;
+}
 function foesOf(e,o){const t=e.teamOf(o);return e.stones.filter(s=>s.alive&&e.teamOf(s.owner)!==t)}
 /* 원하는 거리만큼 미끄러지려면 얼마나 당겨야 하는지 (이분 탐색) */
 function fForTravel(e,s,d){let lo=0,hi=1;if(e.travel(s,1)<=d)return 1;for(let i=0;i<14;i++){const m=(lo+hi)/2;if(e.travel(s,m)<d)lo=m;else hi=m}return hi}
@@ -2732,7 +2791,7 @@ function heuristicCands(e,o,lv){
    for(const k of c){
     const blocked=pathBlocked(e,my,k.ax,k.ay,k.dist,[my,en]);
     const risk=myEd<EDGE_REF*.3?Math.max(0,k.ax*mx+k.ay*mY)*.25:0;
-    const sc=k.q*edgeF*1.6-k.dist/EDGE_REF*.35-(blocked?1.3:0)-risk+Math.random()*lv.noise;
+    const sc=k.q*edgeF*1.6-k.dist/EDGE_REF*.35-(blocked?1.3:0)-risk-(overVoid(e,my,k.ax,k.ay,k.dist)?1.8:0)+Math.random()*lv.noise;
     void heavy;
     out.push({sc,my,ax:k.ax,ay:k.ay,need:clamp(fForTravel(e,my,k.dist+(ed+en.r+30)/xfer)*1.04,.3,1)});
    }
@@ -2769,7 +2828,30 @@ function* aiPlan(e,o,lk){
  if(e.tag)return yield* tagPlan(e,o,lv);
  const cands=heuristicCands(e,o,lv);if(!cands.length)return null;
  const toShot=(my,ang,f)=>({id:my.id,ax:Math.cos(ang),ay:Math.sin(ang),f:clamp(f,.05,1)});
- if(!lv.sim){const b=cands[0];return toShot(b.my,Math.atan2(b.ay,b.ax)+(Math.random()-.5)*lv.err,clamp(b.need*(.92+Math.random()*.12),.45,1)*lv.pw)}
+ if(!lv.sim){
+  /* 쉬움·보통도 맵을 봄: 상위 후보 몇 개를 실제 물리로 한 번씩 쳐 보고(구멍·가장자리·범퍼·소용돌이 반영)
+     내 알이 빠지는 샷은 피함. 조준 오차는 고른 뒤에 적용되므로 실수는 여전히 함 */
+  const scored=[],wob=lv.err*.35;
+  for(const c of cands.slice(0,lv.look||4)){
+   const ang=Math.atan2(c.ay,c.ax);
+   for(const k of[1,.84]){            // 계산한 힘 · 조금 약하게 (지나쳐서 빠지는 것 방지)
+    const f=clamp(c.need*k,.4,1)*lv.pw;let sum=0;
+    for(const da of[0,-wob,wob])sum+=evalShot(e,o,{safety:1.3},toShot(c.my,ang+da,f),-1);   // 조금 빗나가도 안전한지
+    scored.push({c,ang,k,sc:sum/3+c.sc*12});
+    yield;
+   }
+  }
+  /* 공격할 곳이 전부 위험하면(예: 상대가 구멍 건너편에만 있음) 가장자리·구멍에서 살짝 물러나는 안전 이동도 후보로 */
+  for(const my of e.stones.filter(s=>s.alive&&s.owner===o)){
+   if(-e.sdf(my.x,my.y)>110)continue;
+   const[nx,ny]=e.normal(my.x,my.y),ang=Math.atan2(-ny,-nx);
+   scored.push({c:{my,need:.3},ang,k:1,safe:true,sc:evalShot(e,o,{safety:1.3},toShot(my,ang,.3),-1)});
+   yield;
+  }
+  scored.sort((a,b)=>b.sc-a.sc);const b=scored[0];
+  if(b.safe)return toShot(b.c.my,b.ang+(Math.random()-.5)*lv.err*.5,.3*(.9+Math.random()*.2));
+  return toShot(b.c.my,b.ang+(Math.random()-.5)*lv.err,clamp(b.c.need*b.k*(.94+Math.random()*.1),.4,1)*lv.pw);
+ }
  const cfg=lv.sim,tried=[];let el=0,leader=-1;
  if(cfg.focus){let best=-1;for(const p of e.players){if(e.teamOf(p.id)===e.teamOf(o))continue;const n=e.aliveCount(p.id)+(p.id===0?.5:0);if(n>best){best=n;leader=p.id}}}
  const run=(my,ang,f)=>{tried.push({my,ang,f,sc:evalShot(e,o,cfg,toShot(my,ang,f),leader)})};
@@ -2778,10 +2860,11 @@ function* aiPlan(e,o,lk){
   const ang=Math.atan2(c.ay,c.ax);
   for(const f of[c.need,...cfg.powers]){if(el>cfg.budget)break;run(c.my,ang,f);el=yield}
  }
- if(cfg.defend)for(const my of e.stones.filter(s=>s.alive&&s.owner===o)){
-  if(el>cfg.budget*1.3)break;if(-e.sdf(my.x,my.y)>90)continue;
+ /* 안전 이동(가장자리·구멍에서 물러나기): 공격 샷이 모두 위험할 때를 대비해 모든 난이도가 고려 */
+ for(const my of e.stones.filter(s=>s.alive&&s.owner===o)){
+  if(el>cfg.budget*1.3)break;if(-e.sdf(my.x,my.y)>(cfg.defend?90:110))continue;
   const[nx,ny]=e.normal(my.x,my.y),ang=Math.atan2(-ny,-nx);
-  for(const f of[.28,.42]){run(my,ang,f);el=yield}
+  for(const f of cfg.defend?[.28,.42]:[.3]){run(my,ang,f);el=yield}
  }
  tried.sort((a,b)=>b.sc-a.sc);
  for(const t of tried.slice(0,cfg.refine))for(const off of cfg.offsets){if(el>cfg.budget*1.6)break;run(t.my,t.ang+off,t.f);el=yield}
@@ -4498,7 +4581,7 @@ async function watchRewardAd(){
  if(isActive("result")){const ra=$("btnResultAd");ra.style.display=adLeft()?"":"none";ra.textContent=T("ad_reward_btn",{n:AD_CFG.rewardCoins})+" · "+T("ad_left",{a:adLeft(),b:AD_CFG.rewardDaily})}
 }
 $("btnResultAd").onclick=()=>{Sound.play("ui");watchRewardAd()};
-Ads.init();
+if(acc.consent||acc.tutorialDone)Ads.init();   // 새 계정은 개인정보 처리방침에 동의한 뒤 광고를 시작
 function askQuitApp(){
  queueModal({ico:"👋",title:T("exit_app_title"),body:T("exit_app_body"),okText:T("btn_quit"),cancelText:T("btn_cancel"),danger:true,
   onOk:()=>{flushPlaytime();try{AppPlugin?.exitApp()}catch(e){}}});
@@ -4506,6 +4589,7 @@ function askQuitApp(){
 function handleBack(){
  if(modalBusy&&currentModal){if(currentModal.cancelText)$("modalCancel").click();else $("modalOk").click();return}
  if(sheetOpen){Sound.play("back");closeSheet();return}
+ if($("onboard").classList.contains("show"))return;            // 첫 동의 화면은 뒤로가기로 닫히지 않음
  if(tutorialOpen){$("tutSkip").click();return}
  if(isActive("loading"))return;
  if(isActive("game")){$("btnExitGame").click();return}
@@ -4560,6 +4644,37 @@ function renderTutorial(){
  $("tutNext").textContent=last?T("tut_start"):T("tut_next");
  const c=$("tutorial").querySelector(".tut-card");c.classList.remove("slide");void c.offsetWidth;c.classList.add("slide");
 }
+/* ============================================================
+   첫 접속 안내 — 언어 선택 · 개인정보 처리방침 동의
+   ※ 출시 전에 PRIVACY_CONTACT에 문의용 이메일을 넣으세요 (비워 두면 '스토어 개발자 연락처' 안내가 표시됨)
+============================================================ */
+const PRIVACY_VER=1,PRIVACY_DATE="2026-10-22",PRIVACY_CONTACT="";
+const LANGS=[["ko","가","한국어"],["en","A","English"],["zh","文","中文"]];   // 국기 이모지는 PC(Windows)에서 글자로 깨져 보여서 글자 배지 사용
+function privacyHtml(){return T("pp_body",{date:PRIVACY_DATE,contact:escapeHtml(PRIVACY_CONTACT||T("pp_contact_store"))})}
+function openOnboarding(){tutorialOpen=true;renderOnboarding("lang");$("onboard").classList.add("show")}
+function renderOnboarding(step){
+ const c=$("obCard");c.classList.remove("slide");void c.offsetWidth;c.classList.add("slide");
+ if(step==="lang"){
+  c.innerHTML=`<div class="ob-globe">🌐</div><div class="tut-title">언어 · Language · 语言</div><div class="ob-langs">${LANGS.map(([k,f,n])=>`<button data-l="${k}" class="${currentLang===k?"active":""}"><i>${f}</i>${n}</button>`).join("")}</div>`;
+  c.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{Sound.unlock();Sound.play("ui");setLang(b.dataset.l);renderOnboarding("privacy")});
+  return;
+ }
+ c.innerHTML=`<div class="ob-globe">🔒</div><div class="tut-title">${T("pp_title")}</div><div class="tut-body" style="min-height:0">${T("pp_intro")}</div>
+  <div class="ob-policy">${privacyHtml()}</div>
+  <label class="ob-check"><input type="checkbox" id="obAgree"><span>${T("pp_check")}</span></label>
+  <div class="tut-actions"><button class="btn" id="obBack">${T("pp_back")}</button><button class="btn primary" id="obOk" disabled>${T("pp_agree")}</button></div>`;
+ const ok=$("obOk");$("obAgree").onchange=ev=>{ok.disabled=!ev.target.checked};
+ $("obBack").onclick=()=>{Sound.play("back");renderOnboarding("lang")};
+ ok.onclick=()=>{
+  if(ok.disabled){showToast(T("pp_need"),"bad");return}
+  acc.consent={v:PRIVACY_VER,at:Date.now(),lang:currentLang};save();Sound.play("claim");
+  $("onboard").classList.remove("show");Ads.init();openTutorial();
+ };
+}
+/* 설정에서 언제든 다시 보기 */
+function showPrivacy(){
+ openSheet(`<div class="sheet-title">🔒 ${T("pp_title")}</div><div class="ob-policy" style="max-height:60vh">${privacyHtml()}</div><div class="sheet-actions"><button class="btn" id="ppClose">${T("btn_close")}</button></div>`,c=>{c.querySelector("#ppClose").onclick=()=>{Sound.play("back");closeSheet()}});
+}
 function openTutorial(){tutorialOpen=true;tutIdx=0;renderTutorial();$("tutorial").classList.add("show")}
 function closeTutorial(startMatchNow){
  tutorialOpen=false;$("tutorial").classList.remove("show");
@@ -4612,7 +4727,8 @@ $("loadingStatus").textContent=T("loading_status");$("loadingTip").textContent=T
   setTimeout(()=>{
    if(!acc.tutorialDone)tutorialOpen=true;        // 첫 방문: 출석 보상보다 튜토리얼 먼저
    go("home");
-   if(!acc.tutorialDone)setTimeout(openTutorial,200);
+   /* 처음 접속한 계정: 언어 선택 → 개인정보 처리방침 동의 → (그 언어로) 튜토리얼 */
+   if(!acc.tutorialDone)setTimeout(()=>{if(!acc.consent)openOnboarding();else openTutorial()},200);
   },260);
  },120);
 })();
